@@ -18,7 +18,7 @@
         $pdo = connect();   // DB接続
     } catch (PDOException $e) {
         echo 'データベースの接続に失敗しました。';
-        echo 'エラー理由'. $e->getMessage(). PHP_EOL;
+        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
         return;
     }
 
@@ -30,28 +30,33 @@
         $statement_prefecture = get_prefecture($pdo);
     } catch (PDOException $e) {
         echo '都道府県データの取得に失敗しました。';
-        echo 'エラー理由'. $e->getMessage(). PHP_EOL;
+        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
         return;
     }
+
+    // 検索条件（未入力の場合は空文字にする：strict_types下でのTypeError防止）
+    $prefecture   = (string)($_GET['prefecture'] ?? '');
+    $municipality = (string)($_GET['municipality'] ?? '');
+    $town_area    = trim((string)($_GET['town_area'] ?? ''));
 
     // DBから郵便番号を検索する。
     try {
 
         // 町名の入力の有無で検索処理を分ける
-        if (isset($_GET['town_area']) && (trim($_GET['town_area']) !== '')) { // 町名が入力されている場合
-            $statement_postcode = search_post_code($pdo, $_GET['prefecture'], $_GET['municipality'], trim($_GET['town_area']));
+        if ($town_area !== '') { // 町名が入力されている場合
+            $statement_postcode = search_post_code($pdo, $prefecture, $municipality, $town_area);
         } else {    // 町名が入力されていない場合
-            $statement_postcode = search_post_code($pdo, $_GET['prefecture'], $_GET['municipality']);
+            $statement_postcode = search_post_code($pdo, $prefecture, $municipality);
         }
 
         // 検索結果が0件の場合、都道府県+市区町村で再検索する
         if ( $statement_postcode->rowCount() === 0) {
-            $statement_postcode = search_post_code($pdo, $_GET['prefecture'], $_GET['municipality']);
+            $statement_postcode = search_post_code($pdo, $prefecture, $municipality);
         }
 
     } catch (PDOException $e) {
         echo '郵便番号の検索に失敗しました。';
-        echo 'エラー理由'. $e->getMessage(). PHP_EOL;
+        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
         return;
     }
 
@@ -81,7 +86,7 @@
                                 <?php
                                     // 検索ページで選択した都道府県を初期表示する
                                     $selected_flag = '';
-                                    if($row_prefecture['prefecture'] === $_GET['prefecture']) {
+                                    if($row_prefecture['prefecture'] === $prefecture) {
                                         $selected_flag = 'selected';
                                     }
                                 ?>
@@ -112,7 +117,7 @@
         <hr size="5" color="black" noshade>     <!--- 罫線 --->
 
         <!-- フォームに入力された住所とデータベースで検索した結果を表形式で表示する -->
-        <h1 id="result_heading">住所「<?=escape($_GET['prefecture']. $_GET['municipality']. trim($_GET['town_area']))?>」の郵便番号の検索結果：<?=$statement_postcode->rowCount()?>件</h1>
+        <h1 id="result_heading">住所「<?=escape($prefecture. $municipality. $town_area)?>」の郵便番号の検索結果：<?=$statement_postcode->rowCount()?>件</h1>
         <table border="1">
             <tr>
                 <th>郵便番号</th>

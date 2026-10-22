@@ -22,7 +22,7 @@
 
     } catch (PDOException $e) {
         echo '都道府県データの取得に失敗しました。';
-        echo 'エラー理由'. $e->getMessage(). PHP_EOL;
+        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
         return;
     }
 ?>

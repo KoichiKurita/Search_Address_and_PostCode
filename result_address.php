@@ -15,7 +15,7 @@
     require_once dirname(__FILE__). '/config.php';      // 外部関数読み込み
 
     // 入力された郵便番号
-    $post_code = $_GET['post-code'];
+    $post_code = (string)($_GET['post-code'] ?? '');
 
     // ハイフンをUnicode「U+002D(-)」に変換する
     if (preg_match(PATTERN_HYPHEN, $post_code) === 1)  {
@@ -32,7 +32,7 @@
 
     } catch (PDOException $e) {
         echo '住所の検索に失敗しました。';
-        echo 'エラー理由'. $e->getMessage(). PHP_EOL;
+        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
         return;
     }
 ?>
@@ -71,7 +71,7 @@
         <hr size="5" color="black" noshade>     <!--- 罫線 --->
 
         <!-- フォームに入力された郵便番号とデータベースで検索した結果を表形式で表示する -->
-        <h1 id="result_heading">郵便番号「<?=escape($_GET['post-code'])?>」の住所の検索結果：<?=$statement->rowCount()?>件</h1>
+        <h1 id="result_heading">郵便番号「<?=escape($post_code)?>」の住所の検索結果：<?=$statement->rowCount()?>件</h1>
         <table border="1">
             <tr>
                 <th>郵便番号</th>

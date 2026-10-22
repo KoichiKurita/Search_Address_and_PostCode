@@ -64,7 +64,7 @@
      * @param string $town_area=null 町名
      * @return PDO::prepare SQL statement を返します
      */
-    function search_post_code(PDO $pdo, string $prefecture, string $municipality, string $town_area = null) :PDOStatement
+    function search_post_code(PDO $pdo, string $prefecture, string $municipality, ?string $town_area = null) :PDOStatement
     {
         // 町名（town_area）の有無でSQL文を変える
         if ($town_area === null) {  // 町名がない場合

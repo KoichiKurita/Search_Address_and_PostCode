@@ -16,6 +16,12 @@
     $raw = file_get_contents('php://input');
     $selected_prefecture = json_decode($raw);
 
+    // 文字列以外が送られた場合は空配列を返す（strict_types下でのTypeError防止）
+    if (!is_string($selected_prefecture)) {
+        echo json_encode(array());
+        exit;
+    }
+
     // DBに接続し、市区町村一覧データを取得する
     try {
 
@@ -35,7 +41,8 @@
     } catch (PDOException $e) {
         // データベースの接続, 検索でエラーが発生した場合、javascript 側にエラーメッセージを返す
         $error_msg = array();
-        $error_msg['error_msg'] = '市区町村の取得に失敗しました。理由：'. $e->getMessage(). PHP_EOL;
+        error_log('get_municipality: '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
+        $error_msg['error_msg'] = '市区町村の取得に失敗しました。';
         echo json_encode($error_msg);
     }
 ?>
