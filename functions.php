@@ -33,7 +33,9 @@
     function get_prefecture(PDO $pdo) :PDOStatement
     {
         // 郵便番号データベースから都道府県の一覧データを取得
-        $statement = $pdo->prepare('SELECT DISTINCT prefecture FROM post_codes');
+        // 日本郵便のデータは全国地方公共団体コード順（北海道→沖縄県）に並んでおり、
+        // id もその順に振られているため、各都道府県の最小 id で並べると都道府県コード順になる
+        $statement = $pdo->prepare('SELECT prefecture FROM post_codes GROUP BY prefecture ORDER BY MIN(id)');
         $statement->execute();
 
         return $statement;
@@ -48,7 +50,8 @@
     function get_municipality(PDO $pdo, string $selected_prefecture) :PDOStatement
     {
         // 郵便番号データベースから市区町村の一覧データを取得
-        $statement = $pdo->prepare('SELECT DISTINCT municipality FROM post_codes WHERE prefecture = :prefecture');
+        // 都道府県と同様に、最小 id で並べて全国地方公共団体コード順にする
+        $statement = $pdo->prepare('SELECT municipality FROM post_codes WHERE prefecture = :prefecture GROUP BY municipality ORDER BY MIN(id)');
         $statement->bindValue(':prefecture', $selected_prefecture, PDO::PARAM_STR);
         $statement->execute();
 
