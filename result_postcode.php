@@ -98,7 +98,8 @@
 
                 <div class="address-input">
                     <label for="municipality">市区町村<span class="required">（必須）</span>：
-                        <select name="municipality" id="municipality" required>
+                        <!-- 検索した市区町村を data-selected に埋め込み、JS で選択肢を作るときに初期選択にする -->
+                        <select name="municipality" id="municipality" data-selected="<?=escape($municipality)?>" required>
                             <option value="">選択してください</option>
                         </select>
                     </label>
@@ -106,7 +107,7 @@
 
                 <div class="address-input">
                     <label for="town_area">町名：
-                        <input type="text" name="town_area" id="town_area">
+                        <input type="text" name="town_area" id="town_area" value="<?=escape($town_area)?>">
                     </label>
                 </div>
             </div>
@@ -114,6 +115,9 @@
             <button type="submit" name="operation" value="search">検索開始</button>
         </form>
 
+        <!-- 市区町村の取得に失敗したときに、エラーメッセージを表示する部分 -->
+        <p id="error-message" role="alert"></p>
+        
         <hr size="5" color="black" noshade>     <!--- 罫線 --->
 
         <!-- フォームに入力された住所とデータベースで検索した結果を表形式で表示する -->

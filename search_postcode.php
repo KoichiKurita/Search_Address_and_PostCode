@@ -70,6 +70,9 @@
             <button type="submit" name="operation" value="search">検索開始</button>
         </form>
 
+        <!-- 市区町村の取得に失敗したときに、エラーメッセージを表示する部分 -->
+        <p id="error-message" role="alert"></p>
+        
         <!-- JavaScript -->
         <!-- .js間のモジュール読み込みはサーバにアップロードした状態でないと実行できない。（ローカルではエラーになる。）
         また、.jsファイルを読み込む.jsファイルに対して、html側でtype="module"で読み込まないといけない。 -->

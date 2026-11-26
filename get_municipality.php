@@ -30,9 +30,11 @@
         $statement = get_municipality($pdo, $selected_prefecture);
 
         // 取得した市区町村一覧データを配列化する
+        // JSON にはエスケープせずに入れる（HTML エスケープは、表示する側でだけ行う）
+        // JS 側は new Option() で文字列として扱うので、ここでエスケープすると「&amp;」のように二重になる
         $municipalities = array();
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-            $municipalities[] = escape($row['municipality']);
+            $municipalities[] = $row['municipality'];
         }
 
         // 市区町村一覧データをJSON文字列に変換し、javascript 側へ返す
