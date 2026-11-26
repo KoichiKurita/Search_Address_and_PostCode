@@ -1,39 +1,44 @@
-<?php declare(strict_types=1); ?>
-
-<!--
-    Webアプリ実践課題
-    郵便番号検索(result_address.php)
-    作成者：リンクス新越谷 栗田幸一
-    作成日：2023.3.31
-    修正日：2026.11.27
--->
-
-<!-- メインルーチン -->
-<!-- 郵便番号フォームの入力内容から住所を検索する -->
 <?php
+    declare(strict_types=1);
+
+    /**
+     * Webアプリ実践課題
+     * 住所検索(result_address.php)
+     * 作成者：リンクス新越谷 栗田幸一
+     * 作成日：2023.3.31
+     * 修正日：2026.11.27
+     *
+     * 郵便番号から住所を検索し、結果を表示する
+     * ※ ステータスコードを正しく返せるよう、HTML を出力する前にすべての処理を終える
+     */
+
     require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み（config.php も functions.php の中で読み込む）
 
     // 入力された郵便番号を正規化する（全角数字・各種ハイフン・前後の空白に対応）
     $post_code = normalize_post_code((string)($_GET['post-code'] ?? ''));
 
-    // DBに接続し、郵便番号を検索する。
-    try {
+    $rows = [];             // 検索結果
+    $error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）
 
-        $pdo = connect();   // DB接続
+    if (!is_valid_post_code($post_code)) {
+        // 書式が正しくない場合は DB を検索せず、400（Bad Request）とエラーメッセージを返す
+        // JS のチェックは URL を直接書き換えれば通らずに送れるので、サーバー側でも必ず検証する
+        http_response_code(400);
+        $error_message = '郵便番号は7桁の数字で入力してください（例：330-0063）';
+    } else {
+        try {
+            $pdo = connect();   // DB接続
 
-        // 郵便番号から住所を検索する
-        // fetchAll で配列として受け取り、件数は count() で数える
-        // （SELECT 文に対する rowCount() は、DB の種類によっては正しい件数を返さないため）
-        $rows = search_address($pdo, $post_code)->fetchAll(PDO::FETCH_ASSOC);
-
-    } catch (PDOException $e) {
-        echo '住所の検索に失敗しました。';
-        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
-        return;
+            // 郵便番号から住所を検索する
+            // fetchAll で配列として受け取り、件数は count() で数える
+            // （SELECT 文に対する rowCount() は、DB の種類によっては正しい件数を返さないため）
+            $rows = search_address($pdo, $post_code)->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
+            render_error_page(500, '住所の検索に失敗しました。時間をおいて再度お試しください。');
+        }
     }
 ?>
-
-<!-- 以下、結果表示用Webページ -->
 <!DOCTYPE html>
 <html lang="ja">
     <head>
@@ -44,7 +49,7 @@
     </head>
 
     <body>
-        <!-- result.phpにも検索フォームを表示する -->
+        <!-- 結果画面にも検索フォームを表示する -->
         <h1>住所検索</h1>
         <p id="direction">郵便番号を入力してください。郵便番号検索は<a href="search_postcode.php">こちら</a></p>
         <p class="note">注：7桁の数字で入力してください。ハイフン（-）は有り・無しどちらでも検索可能です。</p>
@@ -61,31 +66,32 @@
             <button type="submit" name="operation" value="search" id="button">検索開始</button>
         </form>
 
-        <!-- 入力された郵便番号の書式が誤っている場合にエラーメッセージを表示する部分 -->
-        <p id="error-message"></p>
+        <!-- 入力された郵便番号の書式が誤っている場合にエラーメッセージを表示する部分（JS とサーバーの両方が使う） -->
+        <p id="error-message" role="alert"><?=escape($error_message)?></p>
 
-        <hr class="divider">
+        <?php if ($error_message === ''): ?>
+            <hr class="divider">
 
-        <!-- フォームに入力された郵便番号とデータベースで検索した結果を表形式で表示する -->
-        <h1 id="result_heading">郵便番号「<?=escape($post_code)?>」の住所の検索結果：<?=count($rows)?>件</h1>
-        <table class="result-table">
-            <tr>
-                <th>郵便番号</th>
-                <th>住所</th>
-            </tr>
+            <!-- フォームに入力された郵便番号とデータベースで検索した結果を表形式で表示する -->
+            <h1 id="result_heading">郵便番号「<?=escape($post_code)?>」の住所の検索結果：<?=count($rows)?>件</h1>
+            <table class="result-table">
+                <tr>
+                    <th>郵便番号</th>
+                    <th>住所</th>
+                </tr>
 
-            <?php foreach ($rows as $row): ?>
-            <tr>
-                <td><?=escape($row['post_code'])?></td>
-                <td><?=escape($row['prefecture']. $row['municipality']. $row['town_area'])?></td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
+                <?php foreach ($rows as $row): ?>
+                <tr>
+                    <td><?=escape($row['post_code'])?></td>
+                    <td><?=escape($row['prefecture']. $row['municipality']. $row['town_area'])?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        <?php endif; ?>
 
-        <a href='search_address.html'>住所検索トップへ戻る</a>
+        <a href="search_address.html">住所検索トップへ戻る</a>
 
         <!-- JavaScript -->
-        <!-- Javascript直下にコメント入れるとページロード完了後に動作しないことがあるので注意する -->
         <script src="js/result_address_script.js" type="module"></script>
     </body>
 </html>
