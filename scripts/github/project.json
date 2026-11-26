@@ -1,6 +1,6 @@
 {
   "repository": "KoichiKurita/Search_Address_and_PostCode",
-  "default_branch": "master",
+  "default_branch": "main",
 
   "repo_settings": {
     "has_issues": true,
@@ -14,13 +14,13 @@
   },
 
   "ruleset": {
-    "name": "protect-master",
+    "name": "protect-main",
     "required_status_checks": ["PHP 構文チェック"]
   },
 
   "environment": {
     "name": "production",
-    "deployment_branches": ["master"]
+    "deployment_branches": ["main"]
   },
 
   "baseline_tag": {
@@ -73,13 +73,13 @@
       "title": "GitHub の設定をコード化する（ラベル・マイルストーン・Issue・ブランチ保護）",
       "milestone": "Phase 0: 開発基盤整備",
       "labels": ["type: chore", "priority: high"],
-      "body": "## 概要\n`scripts/github/setup.py` と `project.json` で、GitHub の設定を何度実行しても同じ結果になる（冪等な）形で管理する。\n\n## 完了条件\n- [ ] ラベル・マイルストーン・Issue を作成できる\n- [ ] master のブランチ保護（PR 必須・CI 必須・強制 push 禁止）\n- [ ] マージ方法を Squash のみにする\n- [ ] `--dry-run` で変更内容を事前に確認できる"
+      "body": "## 概要\n`scripts/github/setup.py` と `project.json` で、GitHub の設定を何度実行しても同じ結果になる（冪等な）形で管理する。\n\n## 完了条件\n- [ ] ラベル・マイルストーン・Issue を作成できる\n- [ ] main のブランチ保護（PR 必須・CI 必須・強制 push 禁止）\n- [ ] マージ方法を Squash のみにする\n- [ ] `--dry-run` で変更内容を事前に確認できる"
     },
     {
       "title": "GitHub Actions でさくらのレンタルサーバへ自動デプロイする",
       "milestone": "Phase 0: 開発基盤整備",
       "labels": ["type: ci", "area: infra", "priority: high"],
-      "body": "## 概要\nmaster への push を契機に、lint → rsync → シンボリックリンク切り替え → ヘルスチェック（失敗時は自動ロールバック）を行う。\n\n## 完了条件\n- [ ] サーバー側の準備（SSH 公開鍵認証、~/apps/postcode の releases/shared、~/www からのシンボリックリンク）\n- [ ] production Environment と Secrets / Variables の登録\n- [ ] PR では lint のみ、マージでデプロイされることを確認\n- [ ] DEPLOY.md に手順を記載"
+      "body": "## 概要\nmain への push を契機に、lint → rsync → シンボリックリンク切り替え → ヘルスチェック（失敗時は自動ロールバック）を行う。\n\n## 完了条件\n- [ ] サーバー側の準備（SSH 公開鍵認証、~/apps/postcode の releases/shared、~/www からのシンボリックリンク）\n- [ ] production Environment と Secrets / Variables の登録\n- [ ] PR では lint のみ、マージでデプロイされることを確認\n- [ ] DEPLOY.md に手順を記載"
     },
 
     {

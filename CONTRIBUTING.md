@@ -3,14 +3,14 @@
 ## ブランチ戦略（GitHub Flow）
 
 ```
-master ──●─────────●─────────●──────▶  常に本番と同じ状態（push で自動デプロイ）
+main ────●─────────●─────────●──────▶  常に本番と同じ状態（push で自動デプロイ）
           \       / \       /
            ●──●──●   ●──●──●
         feature/12-xxx   fix/15-xxx
 ```
 
-- `master` は **常にデプロイ可能**な状態を保つ。直接 push はできない（ブランチ保護）
-- 作業は必ず Issue を起点にし、`master` からブランチを切る
+- `main` は **常にデプロイ可能**な状態を保つ。直接 push はできない（ブランチ保護）
+- 作業は必ず Issue を起点にし、`main` からブランチを切る
 - Pull Request を作ると CI（lint）が走る。通ったら **Squash merge** する
 - マージ後、ブランチは自動で削除される
 
@@ -44,7 +44,7 @@ type は `feat` / `fix` / `security` / `refactor` / `perf` / `test` / `docs` / `
 gh issue list --milestone "Phase 1: 不具合修正・ドキュメント"
 
 # 2. Issue に紐づいたブランチを作成してチェックアウト
-gh issue develop 5 --name fix/5-fullwidth-hyphen --base master --checkout
+gh issue develop 5 --name fix/5-fullwidth-hyphen --base main --checkout
 
 # 3. 実装して動作確認
 make up
@@ -62,8 +62,8 @@ gh pr create --fill --body "Closes #5"
 gh pr checks --watch
 gh pr merge --squash --delete-branch
 
-# 7. master を最新にする
-git switch master && git pull
+# 7. main を最新にする
+git switch main && git pull
 ```
 
 ## バージョンとリリース（セマンティックバージョニング）
@@ -81,6 +81,6 @@ git switch master && git pull
 
 ```bash
 # リリースノートは PR のラベルから自動で分類される（.github/release.yml）
-gh release create v0.2.0 --target master --title "v0.2.0 開発基盤整備" --generate-notes
+gh release create v0.2.0 --target main --title "v0.2.0 開発基盤整備" --generate-notes
 gh api -X PATCH "repos/{owner}/{repo}/milestones/<番号>" -f state=closed
 ```
