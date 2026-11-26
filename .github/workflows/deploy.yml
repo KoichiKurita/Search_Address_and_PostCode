@@ -1,6 +1,6 @@
 # 郵便番号・住所検索 CI/CD
 # - Pull Request 作成・更新時   : 構文チェック（lint）のみ
-# - master への push / マージ時 : lint → さくらのクラウドへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
+# - master への push / マージ時 : lint → さくらのレンタルサーバへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
 name: CI/CD
 
 on:
@@ -30,12 +30,13 @@ jobs:
 
       - name: シェルスクリプト・Python の構文チェック
         run: |
-          bash -n deploy/activate.sh && bash -n deploy/rollback.sh
+          # サーバー（FreeBSD）では bash を使わないため、POSIX sh（dash）で構文を確認する
+          dash -n deploy/activate.sh && dash -n deploy/rollback.sh
           python3 -m py_compile db/ken_all_to_sql.py scripts/github/setup.py
           python3 -c "import json; json.load(open('scripts/github/project.json', encoding='utf-8'))"
 
   deploy:
-    name: さくらのクラウドへデプロイ
+    name: さくらのレンタルサーバへデプロイ
     needs: lint
     # PR では動かさず、master への push（マージ含む）と手動実行のときだけ動かす
     # Variables（APP_DIR）が未登録の間は、サーバー準備前とみなしてデプロイをスキップする
@@ -49,9 +50,8 @@ jobs:
       group: deploy-production
       cancel-in-progress: false
     env:
-      APP_DIR: ${{ vars.APP_DIR }}             # 例: /var/www/postcode
-      RELEASE: ${{ github.sha }}               # コミットID をリリース名にする
-      RELOAD_SERVICE: ${{ vars.RELOAD_SERVICE }} # 例: php8.3-fpm（OPcache 対策。空なら何もしない）
+      APP_DIR: ${{ vars.APP_DIR }}     # 例: /home/<アカウント名>/apps/postcode（~/www の外）
+      RELEASE: ${{ github.sha }}       # コミットID をリリース名にする
     steps:
       - uses: actions/checkout@v4
 
@@ -88,7 +88,7 @@ jobs:
 
       - name: 公開ディレクトリを新リリースに切り替え
         id: activate
-        run: ssh deploy-target "bash -s" -- "$APP_DIR" "$RELEASE" "$RELOAD_SERVICE" < deploy/activate.sh
+        run: ssh deploy-target "sh -s" -- "$APP_DIR" "$RELEASE" < deploy/activate.sh
 
       - name: ヘルスチェック
         env:
@@ -101,7 +101,7 @@ jobs:
 
       - name: 失敗時は直前のリリースへ自動ロールバック
         if: failure() && steps.activate.outcome == 'success'
-        run: ssh deploy-target "bash -s" -- "$APP_DIR" "$RELOAD_SERVICE" < deploy/rollback.sh
+        run: ssh deploy-target "sh -s" -- "$APP_DIR" < deploy/rollback.sh
 
       - name: 後片付け（秘密鍵を削除）
         if: always()

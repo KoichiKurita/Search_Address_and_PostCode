@@ -1,16 +1,17 @@
-#!/usr/bin/env bash
-# サーバー上で実行される「リリース切り替え」スクリプト
-# 使い方: activate.sh <APP_DIR> <RELEASE> [RELOAD_SERVICE]
+#!/bin/sh
+# サーバー上で実行される「リリース切り替え」スクリプト（さくらのレンタルサーバ / FreeBSD 対応）
+# bash や GNU 独自のオプションを使わず、POSIX sh の範囲で書いている。
+# 使い方: activate.sh <APP_DIR> <RELEASE>
 #
 # ディレクトリ構成:
 #   <APP_DIR>/releases/<コミットID>/  … デプロイされたファイル一式
 #   <APP_DIR>/shared/                 … config.php / config.js（Git 管理外の設定）
-#   <APP_DIR>/current -> releases/xxx … Webサーバーはここを公開する
-set -euo pipefail
+#   <APP_DIR>/current -> releases/xxx … ~/www/<公開名> からこのリンクを参照する
+#   APP_DIR は公開ディレクトリ（~/www）の外に置くので、設定ファイルは Web から直接見えない
+set -eu
 
 APP_DIR="$1"
 RELEASE="$2"
-RELOAD_SERVICE="${3:-}"
 KEEP=5                                   # 残しておくリリース数
 
 REL_DIR="$APP_DIR/releases/$RELEASE"
@@ -28,19 +29,15 @@ if [ -L "$APP_DIR/current" ]; then
     readlink "$APP_DIR/current" > "$APP_DIR/previous_release"
 fi
 
-# 3. シンボリックリンクを「作ってから mv で差し替える」ことで、切り替えを一瞬（アトミック）にする
+# 3. 新しいリンクを作ってから rename で差し替える（切り替えが一瞬で終わる＝アトミック）
+#    FreeBSD の mv には GNU の -T がないため、rename(2) を直接呼べる perl を使う
 ln -sfn "$REL_DIR" "$APP_DIR/current.tmp"
-mv -Tf "$APP_DIR/current.tmp" "$APP_DIR/current"
+perl -e 'rename($ARGV[0], $ARGV[1]) or die "rename failed: $!\n"' "$APP_DIR/current.tmp" "$APP_DIR/current"
 echo "公開中: $REL_DIR"
 
-# 4. PHP の OPcache が古いファイルを使い続けないよう、PHP-FPM（または Apache）をリロード
-if [ -n "$RELOAD_SERVICE" ]; then
-    sudo -n /usr/bin/systemctl reload "$RELOAD_SERVICE"
-fi
-
-# 5. 古いリリースを削除（新しい順に KEEP 件だけ残す。公開中のものは消さない）
-cd "$APP_DIR/releases"
+# 4. 古いリリースを削除（新しい順に KEEP 件だけ残す。公開中のものは消さない）
 current_name="$(basename "$(readlink "$APP_DIR/current")")"
+cd "$APP_DIR/releases"
 ls -1t | tail -n +$((KEEP + 1)) | while read -r old; do
     [ "$old" = "$current_name" ] && continue
     rm -rf -- "$old"

@@ -1,4 +1,4 @@
-# 自動デプロイ（GitHub Actions → さくらのクラウド）
+# 自動デプロイ（GitHub Actions → さくらのレンタルサーバ）
 
 `master` ブランチに push（Pull Request のマージを含む）すると、GitHub Actions が次の順に処理します。
 
@@ -8,192 +8,165 @@ lint（php -l） → rsync でアップロード → シンボリックリンク
 ```
 
 Pull Request の段階では lint だけが動き、デプロイはされません。
+GitHub の Variables（`APP_DIR`）が未登録の間は、デプロイの処理は自動で飛ばされます。
+
+前提: さくらのレンタルサーバ **スタンダード以上**（SSH が使えるプラン）
 
 ## 仕組み
 
 ```
-/var/www/postcode/
-├── releases/
-│   ├── 5bf648f.../        ← コミットごとに丸ごと配置（最新5件を保持）
-│   └── a1b2c3d.../
-├── shared/
-│   ├── config.php         ← DB接続情報（Git管理外・サーバーにだけ置く）
-│   └── config.js
-├── previous_release       ← ロールバック先の記録
-└── current -> releases/a1b2c3d...   ← Webサーバーはここを公開
+/home/<アカウント名>/
+├── apps/postcode/                 ← 公開ディレクトリ（www）の外
+│   ├── releases/
+│   │   ├── 5bf648f.../            ← コミットごとに丸ごと配置（最新5件を保持）
+│   │   └── a1b2c3d.../
+│   ├── shared/
+│   │   ├── config.php             ← DB接続情報（Git管理外・サーバーにだけ置く）
+│   │   └── config.js
+│   ├── previous_release           ← ロールバック先の記録
+│   └── current -> releases/a1b2c3d...
+└── www/
+    └── postcode -> ../apps/postcode/current   ← https://<ドメイン>/postcode/
 ```
 
-- **アトミックな切り替え**: アップロード中のファイルが見えることはなく、`current` の付け替えは一瞬で終わる
+- **アトミックな切り替え**: アップロード中の中途半端な状態が公開されることはなく、`current` の付け替えは一瞬で終わる
 - **すぐ戻せる**: 古いリリースが残っているので、リンクを戻すだけで元に戻る
-- **秘密情報を Git に入れない**: DB パスワードは `shared/config.php` にだけ置き、GitHub には SSH 鍵だけを登録する
+- **秘密情報を公開領域に置かない**: `config.php` は `~/www` の外（`shared/`）にあり、GitHub にも入れない
+
+### レンタルサーバならではの制約と対策
+
+| 制約 | 対策 |
+|---|---|
+| OS が FreeBSD で、bash や GNU 独自のオプションがない | デプロイスクリプトは POSIX sh だけで書き、CI でも `dash -n` で確認している。リンクの差し替えは perl の `rename` で行う |
+| 専用のデプロイユーザーを作れない | デプロイ専用の SSH 鍵を使い、`restrict` でポート転送などを無効化する。鍵は定期的に作り直す |
+| PHP-FPM などをリロードできない | PHP のパスのキャッシュが切れるまで、切り替え後**最大2分ほど**は旧リリースが表示されることがある。旧リリースも残しているので、エラーにはならない |
 
 ---
 
 ## 1. サーバー側の準備（初回のみ）
 
-以下は Ubuntu の例です。AlmaLinux / Rocky Linux の場合は、`www-data` を `apache`、`apt` を `dnf` に読み替えてください。
+### 1-1. SSH でログインできるようにする
 
-### 1-1. デプロイ専用ユーザーを作る
+1. コントロールパネルで **アカウント名** と **初期ドメイン**（`<アカウント名>.sakura.ne.jp`）を確認する
+2. 自分の PC（WSL / Mac）から、サーバーのパスワードでログインする
+   ```bash
+   ssh <アカウント名>@<アカウント名>.sakura.ne.jp
+   ```
+   初回に表示されるホスト鍵の指紋（`SHA256:...`）は、手順 2 で使うので控えておく
+3. デプロイに必要なコマンドがあるかを確認する
+   ```sh
+   which rsync perl sh      # 3つともパスが表示されれば OK
+   ```
 
-```bash
-sudo apt install -y rsync
-sudo adduser --disabled-password --gecos "" deploy
+### 1-2. ディレクトリと設定ファイルを用意する（サーバー上で実行）
+
+```sh
+mkdir -p ~/apps/postcode/releases ~/apps/postcode/shared
+
+# 今動いている設定ファイルを shared にコピーする（公開先が違う場合は読み替え）
+cp ~/www/postcode/config.php   ~/apps/postcode/shared/config.php
+cp ~/www/postcode/js/config.js ~/apps/postcode/shared/config.js
+
+# config.php は自分だけが読めるようにする（DB パスワードが入っているため）
+chmod 600 ~/apps/postcode/shared/config.php
+chmod 644 ~/apps/postcode/shared/config.js
 ```
 
-### 1-2. ディレクトリと設定ファイルを用意する
-
-```bash
-sudo mkdir -p /var/www/postcode/{releases,shared}
-sudo chown -R deploy:deploy /var/www/postcode
-
-# 現在動いている config.php / js/config.js を shared にコピーする
-sudo cp <今の公開ディレクトリ>/config.php     /var/www/postcode/shared/config.php
-sudo cp <今の公開ディレクトリ>/js/config.js   /var/www/postcode/shared/config.js
-
-# config.php は Webサーバーだけが読めるようにする（DBパスワードが入っているため）
-sudo chown deploy:www-data /var/www/postcode/shared/config.php
-sudo chmod 640             /var/www/postcode/shared/config.php
-sudo chmod 644             /var/www/postcode/shared/config.js
-```
-
-### 1-3. Webサーバーの公開先を `current` に向ける
-
-Apache の例（`/etc/apache2/sites-available/` 配下の設定ファイル）:
-
-```apache
-Alias /postcode /var/www/postcode/current
-<Directory /var/www/postcode/current>
-    Options -Indexes +FollowSymLinks
-    AllowOverride All
-    Require all granted
-</Directory>
-```
-
-```bash
-sudo apachectl configtest && sudo systemctl reload apache2
-```
-
-### 1-4. リロードだけを sudo で許可する（OPcache 対策）
-
-PHP の OPcache はファイルの実体パスでキャッシュするため、リンクを切り替えたあとに PHP-FPM をリロードします。
-ここでは、そのリロードだけを `deploy` ユーザーに許可します（それ以外の sudo はできません）。
-
-```bash
-sudo visudo -f /etc/sudoers.d/deploy
-```
-
-```
-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm
-```
-
-> mod_php（PHP-FPM を使っていない）場合は `php8.3-fpm` を `apache2` にしてください。
-
-### 1-5. SSH の安全設定
-
-`/etc/ssh/sshd_config` で、パスワードログインと root ログインを禁止します。
-
-```
-PasswordAuthentication no
-PermitRootLogin no
-```
-
-```bash
-sudo systemctl reload ssh      # AlmaLinux 系は sshd
-```
-
-さくらのクラウドの **パケットフィルタ** で TCP 22（または変更したポート）を許可します。
-GitHub Actions の接続元 IP は固定できないため、**鍵認証のみ・パスワード禁止・fail2ban** で守る構成にしています。
-
-```bash
-sudo apt install -y fail2ban     # SSH への総当たり攻撃を自動でブロックする
-sudo systemctl enable --now fail2ban
-```
+> `chmod 600` で画面にエラーが出る場合は、PHP が別のユーザーで動いています。`chmod 640` → `644` の順に試してください。
 
 ---
 
 ## 2. デプロイ用 SSH 鍵を作る（自分の PC で実行）
 
 ```bash
-ssh-keygen -t ed25519 -f ./deploy_key -C "github-actions-deploy" -N ""
+cd ~
+ssh-keygen -t ed25519 -f ~/deploy_key -C "github-actions-deploy" -N ""
 ```
 
 - `deploy_key.pub`（公開鍵）→ サーバーに登録する
 - `deploy_key`（秘密鍵）→ GitHub の Secrets に登録し、**登録後は PC から削除する**
 
-サーバーに公開鍵を登録します。先頭に `restrict` を付けると、ポートフォワーディングなどの余計な機能が無効になります。
+公開鍵をサーバーに登録します。先頭に `restrict` を付けると、ポート転送などの余計な機能が無効になります。
 
 ```bash
-sudo -u deploy mkdir -p -m 700 /home/deploy/.ssh
-echo "restrict $(cat deploy_key.pub)" | sudo -u deploy tee -a /home/deploy/.ssh/authorized_keys
-sudo chmod 600 /home/deploy/.ssh/authorized_keys
+echo "restrict $(cat ~/deploy_key.pub)" | ssh <アカウント名>@<アカウント名>.sakura.ne.jp \
+  'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
+
+# 鍵でログインできるかを確認（パスワードを聞かれなければ成功）
+ssh -i ~/deploy_key <アカウント名>@<アカウント名>.sakura.ne.jp 'echo OK'
 ```
 
-ホスト鍵（なりすまし防止用）を取得します。
+ホスト鍵（なりすまし防止用）を取得し、指紋が 1-1 で控えたものと同じかを確認します。
 
 ```bash
-ssh-keyscan -p 22 <サーバーのIPアドレス> 2>/dev/null
+ssh-keyscan <アカウント名>.sakura.ne.jp 2>/dev/null > ~/deploy_known_hosts
+ssh-keygen -lf ~/deploy_known_hosts
 ```
-
-> 取得した鍵が本物かを、サーバー上の `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` の指紋と見比べて確認してください。
 
 ---
 
-## 3. GitHub の設定
+## 3. GitHub に登録する（自分の PC で実行）
 
-> **コードで行う場合（推奨）**: 3-1〜3-3 はすべて `scripts/github/setup.py` で設定できます。
-> ```bash
-> cp scripts/github/deploy.env.example scripts/github/deploy.env   # 値を記入
-> python3 scripts/github/setup.py environment secrets ruleset --dry-run
-> python3 scripts/github/setup.py environment secrets ruleset
-> ```
-> 以下は、画面から設定する場合の手順と、各設定の意味です。
+`production` Environment とブランチ保護は、`make gh-setup` ですでに作成済みです。残りは Secrets と Variables の登録だけです。
 
-### 3-1. Environment を作る
+```bash
+cd ~/dev/Search_Address_and_PostCode
+cp scripts/github/deploy.env.example scripts/github/deploy.env
+# deploy.env の <アカウント名> を書き換える（エディタで開く: code scripts/github/deploy.env）
 
-リポジトリの **Settings → Environments → New environment** で `production` を作ります。
+python3 scripts/github/setup.py secrets --dry-run   # 登録内容の確認（Secret の値は表示されない）
+python3 scripts/github/setup.py secrets             # 登録
 
-- **Deployment branches and tags**: `Selected branches` → `master` だけを許可
-- （任意）**Required reviewers** に自分を入れると、デプロイ前に承認ボタンが出る
-
-### 3-2. Secrets と Variables を `production` に登録する
+# 登録できたら、秘密鍵を PC から削除する
+rm ~/deploy_key
+```
 
 | 種類 | 名前 | 値の例 |
 |---|---|---|
-| Secret | `SSH_PRIVATE_KEY` | `deploy_key` の中身（`-----BEGIN` から `END-----` まで全部） |
-| Secret | `SSH_KNOWN_HOSTS` | `ssh-keyscan` の出力 |
-| Secret | `DEPLOY_HOST` | サーバーの IP アドレス |
-| Secret | `DEPLOY_USER` | `deploy` |
+| Secret | `SSH_PRIVATE_KEY` | `~/deploy_key` の中身 |
+| Secret | `SSH_KNOWN_HOSTS` | `~/deploy_known_hosts` の中身 |
+| Secret | `DEPLOY_HOST` | `<アカウント名>.sakura.ne.jp` |
+| Secret | `DEPLOY_USER` | `<アカウント名>` |
 | Variable | `DEPLOY_PORT` | `22` |
-| Variable | `APP_DIR` | `/var/www/postcode` |
-| Variable | `APP_URL` | `https://example.com/postcode`（末尾の `/` なし） |
-| Variable | `RELOAD_SERVICE` | `php8.3-fpm`（リロード不要なら空のまま） |
-
-### 3-3. master を保護する（推奨）
-
-**Settings → Branches → Add branch ruleset** で `master` に次を設定します。
-
-- Require a pull request before merging
-- Require status checks to pass → `PHP 構文チェック`
-
-これで「lint が通らないコードは master に入らない＝本番にも出ない」状態になります。
+| Variable | `APP_DIR` | `/home/<アカウント名>/apps/postcode` |
+| Variable | `APP_URL` | `https://<アカウント名>.sakura.ne.jp/postcode`（末尾の `/` なし） |
 
 ---
 
-## 4. 動作確認
+## 4. 初回デプロイと公開先の切り替え
 
-1. ブランチを切って小さな変更を入れ、Pull Request を作る → **lint だけ** が動く
-2. マージする → **Actions** タブで `さくらのクラウドへデプロイ` が緑になる
-3. サーバーで `ls -l /var/www/postcode/current` を実行し、最新のコミットIDを指していることを確認する
-4. ブラウザで動作を確認する
+1. GitHub の **Actions → CI/CD → Run workflow**（または `gh workflow run deploy.yml --ref master`）で、デプロイを実行する
+   - この時点では `~/www/postcode` は旧ファイルのままなので、ヘルスチェックは旧サイトに対して行われる
+2. サーバーで、リリースが配置されたかを確認する
+   ```sh
+   ls -l ~/apps/postcode/current
+   ls ~/apps/postcode/current/
+   ```
+3. 公開先を `current` へのリンクに切り替える（数秒だけ表示されない時間がある）
+   ```sh
+   mv ~/www/postcode ~/www/postcode.bak
+   ln -s ~/apps/postcode/current ~/www/postcode
+   ```
+4. ブラウザで `https://<アカウント名>.sakura.ne.jp/postcode/search_address.html` を開いて、動作を確認する
+   - **403 Forbidden になる場合**は、シンボリックリンクがたどれていません。すぐに `rm ~/www/postcode && mv ~/www/postcode.bak ~/www/postcode` で元に戻し、表示されたエラーを共有してください
+5. 問題がなければ、バックアップを消す
+   ```sh
+   rm -rf ~/www/postcode.bak
+   ```
+
+以降は、`master` にマージするだけで自動的にデプロイされます。
 
 ## 5. ロールバック
 
 - **自動**: ヘルスチェックが失敗すると、直前のリリースに自動で戻ります
-- **手動（GitHub から）**: Actions で過去の成功したデプロイを開き、**Re-run all jobs** を実行するとそのコミットが再デプロイされます
-- **手動（サーバーで）**: `current` のリンクを戻したいリリースに付け替えます
-  ```bash
-  ls -lt /var/www/postcode/releases            # 戻したいコミットIDを確認
-  sudo -u deploy ln -sfn /var/www/postcode/releases/<コミットID> /var/www/postcode/current.tmp
-  sudo -u deploy mv -Tf /var/www/postcode/current.tmp /var/www/postcode/current
-  sudo systemctl reload php8.3-fpm
+- **手動（GitHub から）**: Actions で過去の成功したデプロイを開き、**Re-run all jobs** を実行すると、そのコミットが再デプロイされます
+- **手動（サーバーで）**: `current` のリンクを、戻したいリリースに付け替えます
+  ```sh
+  ls -lt ~/apps/postcode/releases                     # 戻したいコミットIDを確認
+  ln -sfn ~/apps/postcode/releases/<コミットID> ~/apps/postcode/current.tmp
+  perl -e 'rename $ARGV[0], $ARGV[1] or die $!' ~/apps/postcode/current.tmp ~/apps/postcode/current
   ```
+
+## 6. 鍵の作り直し（年1回程度を推奨）
+
+2 の手順で新しい鍵を作って登録し、サーバーの `~/.ssh/authorized_keys` から古い鍵の行を削除します。
