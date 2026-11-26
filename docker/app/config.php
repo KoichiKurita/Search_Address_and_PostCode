@@ -14,8 +14,3 @@
     ));
     define('DB_USER', getenv('DB_USERNAME') ?: 'app');
     define('DB_PASS', getenv('DB_PASSWORD') ?: '');
-
-    /**
-     * ハイフンのパターン文字列（config_dummy.php と同じもの）
-     */
-    define('PATTERN_HYPHEN', '/[\x{30FC}\x{2010}-\x{2015}\x{2212}\x{FF70}\x{2053}\x{2E3A}\x{301C}\x{3030}\x{2500}\x{4E00}\x{FE63}\x{FF0D}\x{2043}\x{FE58}\x{23AF}\x{208B}\x{007E}]/u');

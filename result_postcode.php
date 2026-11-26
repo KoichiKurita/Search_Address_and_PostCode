@@ -5,7 +5,7 @@
     郵便番号検索(result_postcode.php)
     作成者：リンクス新越谷 栗田幸一
     作成日：2023.3.31
-    修正日：2023.4.8
+    修正日：2026.11.27
 -->
 
 <!-- メインルーチン -->
@@ -39,19 +39,26 @@
     $municipality = (string)($_GET['municipality'] ?? '');
     $town_area    = trim((string)($_GET['town_area'] ?? ''));
 
+    // 町名で見つからず、市区町村だけで検索し直したかどうか（画面にお知らせを出すために使う）
+    $is_fallback = false;
+
     // DBから郵便番号を検索する。
     try {
 
         // 町名の入力の有無で検索処理を分ける
+        // fetchAll で配列として受け取り、件数は count() で数える
+        // （SELECT 文に対する rowCount() は、DB の種類によっては正しい件数を返さないため）
         if ($town_area !== '') { // 町名が入力されている場合
-            $statement_postcode = search_post_code($pdo, $prefecture, $municipality, $town_area);
+            $rows_postcode = search_post_code($pdo, $prefecture, $municipality, $town_area)->fetchAll(PDO::FETCH_ASSOC);
         } else {    // 町名が入力されていない場合
-            $statement_postcode = search_post_code($pdo, $prefecture, $municipality);
+            $rows_postcode = search_post_code($pdo, $prefecture, $municipality)->fetchAll(PDO::FETCH_ASSOC);
         }
 
-        // 検索結果が0件の場合、都道府県+市区町村で再検索する
-        if ( $statement_postcode->rowCount() === 0) {
-            $statement_postcode = search_post_code($pdo, $prefecture, $municipality);
+        // 町名で0件だった場合は、都道府県+市区町村で検索し直す
+        // （町名が未入力のときは、上ですでに同じ検索をしているので行わない）
+        if (count($rows_postcode) === 0 && $town_area !== '') {
+            $rows_postcode = search_post_code($pdo, $prefecture, $municipality)->fetchAll(PDO::FETCH_ASSOC);
+            $is_fallback = count($rows_postcode) > 0;
         }
 
     } catch (PDOException $e) {
@@ -117,12 +124,18 @@
 
         <!-- 市区町村の取得に失敗したときに、エラーメッセージを表示する部分 -->
         <p id="error-message" role="alert"></p>
-        
-        <hr size="5" color="black" noshade>     <!--- 罫線 --->
+
+        <hr class="divider">
 
         <!-- フォームに入力された住所とデータベースで検索した結果を表形式で表示する -->
-        <h1 id="result_heading">住所「<?=escape($prefecture. $municipality. $town_area)?>」の郵便番号の検索結果：<?=$statement_postcode->rowCount()?>件</h1>
-        <table border="1">
+        <h1 id="result_heading">住所「<?=escape($prefecture. $municipality. $town_area)?>」の郵便番号の検索結果：<?=count($rows_postcode)?>件</h1>
+
+        <?php if ($is_fallback): ?>
+            <!-- 町名では見つからず、市区町村全体の結果を表示していることを利用者に知らせる -->
+            <p class="notice">町名「<?=escape($town_area)?>」に一致する住所が見つからなかったため、<?=escape($municipality)?>全体の結果を表示しています。</p>
+        <?php endif; ?>
+
+        <table class="result-table">
             <tr>
                 <th>郵便番号</th>
                 <th>都道府県</th>
@@ -130,14 +143,14 @@
                 <th>町名</th>
             </tr>
 
-            <?php while ($row_postcode = $statement_postcode->fetch(PDO::FETCH_ASSOC)): ?>
+            <?php foreach ($rows_postcode as $row_postcode): ?>
             <tr>
                 <td><?=escape($row_postcode['post_code'])?></td>
                 <td><?=escape($row_postcode['prefecture'])?></td>
                 <td><?=escape($row_postcode['municipality'])?></td>
                 <td><?=escape($row_postcode['town_area'])?></td>
             </tr>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         </table>
 
         <a href='search_postcode.php'>郵便番号検索トップへ戻る</a>

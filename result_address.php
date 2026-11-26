@@ -5,22 +5,16 @@
     郵便番号検索(result_address.php)
     作成者：リンクス新越谷 栗田幸一
     作成日：2023.3.31
-    修正日：2023.4.8
+    修正日：2026.11.27
 -->
 
 <!-- メインルーチン -->
 <!-- 郵便番号フォームの入力内容から住所を検索する -->
 <?php
-    require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み
-    require_once dirname(__FILE__). '/config.php';      // 外部関数読み込み
+    require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み（config.php も functions.php の中で読み込む）
 
-    // 入力された郵便番号（前後の空白は取り除く）
-    $post_code = trim((string)($_GET['post-code'] ?? ''));
-
-    // 各種ハイフン（全角ハイフン・長音記号など）を Unicode「U+002D(-)」に変換する
-    // preg_replace は一致した箇所をすべて置換し、一致しなければ元の文字列をそのまま返す
-    // 正規表現の実行に失敗したときは null が返るので、その場合は空文字にする
-    $post_code = preg_replace(PATTERN_HYPHEN, '-', $post_code) ?? '';
+    // 入力された郵便番号を正規化する（全角数字・各種ハイフン・前後の空白に対応）
+    $post_code = normalize_post_code((string)($_GET['post-code'] ?? ''));
 
     // DBに接続し、郵便番号を検索する。
     try {
@@ -28,7 +22,9 @@
         $pdo = connect();   // DB接続
 
         // 郵便番号から住所を検索する
-        $statement = search_address($pdo, $post_code);
+        // fetchAll で配列として受け取り、件数は count() で数える
+        // （SELECT 文に対する rowCount() は、DB の種類によっては正しい件数を返さないため）
+        $rows = search_address($pdo, $post_code)->fetchAll(PDO::FETCH_ASSOC);
 
     } catch (PDOException $e) {
         echo '住所の検索に失敗しました。';
@@ -68,22 +64,22 @@
         <!-- 入力された郵便番号の書式が誤っている場合にエラーメッセージを表示する部分 -->
         <p id="error-message"></p>
 
-        <hr size="5" color="black" noshade>     <!--- 罫線 --->
+        <hr class="divider">
 
         <!-- フォームに入力された郵便番号とデータベースで検索した結果を表形式で表示する -->
-        <h1 id="result_heading">郵便番号「<?=escape($post_code)?>」の住所の検索結果：<?=$statement->rowCount()?>件</h1>
-        <table border="1">
+        <h1 id="result_heading">郵便番号「<?=escape($post_code)?>」の住所の検索結果：<?=count($rows)?>件</h1>
+        <table class="result-table">
             <tr>
                 <th>郵便番号</th>
                 <th>住所</th>
             </tr>
 
-            <?php while ($row = $statement->fetch(PDO::FETCH_ASSOC)): ?>
+            <?php foreach ($rows as $row): ?>
             <tr>
                 <td><?=escape($row['post_code'])?></td>
                 <td><?=escape($row['prefecture']. $row['municipality']. $row['town_area'])?></td>
             </tr>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         </table>
 
         <a href='search_address.html'>住所検索トップへ戻る</a>
