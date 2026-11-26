@@ -76,10 +76,10 @@
       "body": "## 概要\n`scripts/github/setup.py` と `project.json` で、GitHub の設定を何度実行しても同じ結果になる（冪等な）形で管理する。\n\n## 完了条件\n- [ ] ラベル・マイルストーン・Issue を作成できる\n- [ ] master のブランチ保護（PR 必須・CI 必須・強制 push 禁止）\n- [ ] マージ方法を Squash のみにする\n- [ ] `--dry-run` で変更内容を事前に確認できる"
     },
     {
-      "title": "GitHub Actions でさくらのクラウドへ自動デプロイする",
+      "title": "GitHub Actions でさくらのレンタルサーバへ自動デプロイする",
       "milestone": "Phase 0: 開発基盤整備",
       "labels": ["type: ci", "area: infra", "priority: high"],
-      "body": "## 概要\nmaster への push を契機に、lint → rsync → シンボリックリンク切り替え → ヘルスチェック（失敗時は自動ロールバック）を行う。\n\n## 完了条件\n- [ ] サーバー側の準備（deploy ユーザー、releases/shared、sudoers）\n- [ ] production Environment と Secrets / Variables の登録\n- [ ] PR では lint のみ、マージでデプロイされることを確認\n- [ ] DEPLOY.md に手順を記載"
+      "body": "## 概要\nmaster への push を契機に、lint → rsync → シンボリックリンク切り替え → ヘルスチェック（失敗時は自動ロールバック）を行う。\n\n## 完了条件\n- [ ] サーバー側の準備（SSH 公開鍵認証、~/apps/postcode の releases/shared、~/www からのシンボリックリンク）\n- [ ] production Environment と Secrets / Variables の登録\n- [ ] PR では lint のみ、マージでデプロイされることを確認\n- [ ] DEPLOY.md に手順を記載"
     },
 
     {
