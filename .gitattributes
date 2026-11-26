@@ -1,0 +1,6 @@
+# 改行コードを LF にそろえる（Windows で編集してもシェルスクリプトが壊れないように）
+* text=auto eol=lf
+*.bat text eol=crlf
+*.zip binary
+*.png binary
+*.jpg binary

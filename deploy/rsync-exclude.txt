@@ -1,0 +1,19 @@
+# サーバーにアップロードしないファイル（rsync --exclude-from 用）
+.git/
+.github/
+.gitignore
+.gitattributes
+.editorconfig
+.env*
+db/
+deploy/
+docker/
+docker-compose.yml
+Makefile
+scripts/
+*.md
+config_dummy.php
+js/config_dummy.js
+# 設定ファイルはサーバーの shared/ にあるものを使う
+config.php
+js/config.js

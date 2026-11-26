@@ -1,0 +1,287 @@
+{
+  "repository": "KoichiKurita/Search_Address_and_PostCode",
+  "default_branch": "master",
+
+  "repo_settings": {
+    "has_issues": true,
+    "allow_squash_merge": true,
+    "allow_merge_commit": false,
+    "allow_rebase_merge": false,
+    "allow_auto_merge": true,
+    "delete_branch_on_merge": true,
+    "squash_merge_commit_title": "PR_TITLE",
+    "squash_merge_commit_message": "PR_BODY"
+  },
+
+  "ruleset": {
+    "name": "protect-master",
+    "required_status_checks": ["PHP 構文チェック"]
+  },
+
+  "environment": {
+    "name": "production",
+    "deployment_branches": ["master"]
+  },
+
+  "baseline_tag": {
+    "tag": "v0.1.0",
+    "title": "v0.1.0 改修前ベースライン",
+    "notes": "ポートフォリオ改修（Phase 0〜4）を始める前の状態です。以降の変更はマイルストーンごとにリリースします。"
+  },
+
+  "labels": [
+    { "name": "type: bug",         "color": "d73a4a", "description": "不具合" },
+    { "name": "type: feature",     "color": "0e8a16", "description": "新機能" },
+    { "name": "type: security",    "color": "b60205", "description": "セキュリティ対応" },
+    { "name": "type: performance", "color": "fbca04", "description": "性能改善" },
+    { "name": "type: refactor",    "color": "1d76db", "description": "動作を変えない設計改善" },
+    { "name": "type: test",        "color": "5319e7", "description": "テスト" },
+    { "name": "type: docs",        "color": "0075ca", "description": "ドキュメント" },
+    { "name": "type: chore",       "color": "c5def5", "description": "環境・設定・依存関係" },
+    { "name": "type: ci",          "color": "bfd4f2", "description": "CI/CD" },
+    { "name": "area: php",         "color": "8892bf", "description": "PHP（サーバー側）" },
+    { "name": "area: js",          "color": "f1e05a", "description": "JavaScript（ブラウザ側）" },
+    { "name": "area: db",          "color": "006b75", "description": "データベース・郵便番号データ" },
+    { "name": "area: infra",       "color": "444444", "description": "Docker・サーバー・デプロイ" },
+    { "name": "priority: high",    "color": "e11d21", "description": "優先度: 高" },
+    { "name": "priority: medium",  "color": "f9a825", "description": "優先度: 中" },
+    { "name": "priority: low",     "color": "c2e0c6", "description": "優先度: 低" }
+  ],
+
+  "milestones": [
+    { "title": "Phase 0: 開発基盤整備",           "description": "Docker 開発環境、ブランチ戦略、Issue 管理、自動デプロイ（v0.2.0）" },
+    { "title": "Phase 1: 不具合修正・ドキュメント", "description": "既存の不具合修正と README 整備（v0.3.0）" },
+    { "title": "Phase 2: セキュリティ強化",         "description": "入力検証、セキュリティヘッダ、設定ファイルの保護など（v0.4.0）" },
+    { "title": "Phase 3: 品質・非機能要件",         "description": "Composer、テスト、静的解析、性能改善（v0.5.0）" },
+    { "title": "Phase 4: 設計刷新・機能追加",       "description": "レイヤー分離、JSON API、データ自動更新（v1.0.0）" }
+  ],
+
+  "issues": [
+    {
+      "title": "Docker による開発環境を構築する",
+      "milestone": "Phase 0: 開発基盤整備",
+      "labels": ["type: chore", "area: infra", "priority: high"],
+      "body": "## 概要\n本番と同じ PHP 8.3 / MySQL 8.0 をローカルで再現し、`make up` だけで動作確認できるようにする。\n\n## 完了条件\n- [ ] `docker-compose.yml`（app / db / phpMyAdmin）\n- [ ] 初回起動時にスキーマとサンプルデータが自動投入される\n- [ ] `make seed-full` で全国データを投入できる\n- [ ] `make lint` で構文チェックできる"
+    },
+    {
+      "title": "ブランチ戦略と Issue / PR テンプレートを整備する",
+      "milestone": "Phase 0: 開発基盤整備",
+      "labels": ["type: docs", "priority: high"],
+      "body": "## 概要\nGitHub Flow を採用し、ブランチ命名・コミット規約・リリース手順を CONTRIBUTING.md にまとめる。\n\n## 完了条件\n- [ ] CONTRIBUTING.md\n- [ ] Issue テンプレート（不具合 / タスク）\n- [ ] PR テンプレート\n- [ ] リリースノートの自動分類（.github/release.yml）\n- [ ] .gitattributes / .editorconfig"
+    },
+    {
+      "title": "GitHub の設定をコード化する（ラベル・マイルストーン・Issue・ブランチ保護）",
+      "milestone": "Phase 0: 開発基盤整備",
+      "labels": ["type: chore", "priority: high"],
+      "body": "## 概要\n`scripts/github/setup.py` と `project.json` で、GitHub の設定を何度実行しても同じ結果になる（冪等な）形で管理する。\n\n## 完了条件\n- [ ] ラベル・マイルストーン・Issue を作成できる\n- [ ] master のブランチ保護（PR 必須・CI 必須・強制 push 禁止）\n- [ ] マージ方法を Squash のみにする\n- [ ] `--dry-run` で変更内容を事前に確認できる"
+    },
+    {
+      "title": "GitHub Actions でさくらのクラウドへ自動デプロイする",
+      "milestone": "Phase 0: 開発基盤整備",
+      "labels": ["type: ci", "area: infra", "priority: high"],
+      "body": "## 概要\nmaster への push を契機に、lint → rsync → シンボリックリンク切り替え → ヘルスチェック（失敗時は自動ロールバック）を行う。\n\n## 完了条件\n- [ ] サーバー側の準備（deploy ユーザー、releases/shared、sudoers）\n- [ ] production Environment と Secrets / Variables の登録\n- [ ] PR では lint のみ、マージでデプロイされることを確認\n- [ ] DEPLOY.md に手順を記載"
+    },
+
+    {
+      "title": "全角ハイフンで入力した郵便番号が正規化されない",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: bug", "area: js", "priority: high"],
+      "body": "## 概要\n`330ー0063` のように全角ハイフンで入力すると、クライアント側のチェックで弾かれる。\n\n## 原因\n`search_address_script.js` / `result_address_script.js` で、文字列である `post_code` に対して `post_code.value` を参照しているため、置換が実行されない。また、正規表現に `g` フラグがない。\n\n## 完了条件\n- [ ] 全角ハイフン・長音記号・ハイフンなしで同じ結果になる\n- [ ] 2つのスクリプトの重複処理を共通化する"
+    },
+    {
+      "title": "郵便番号チェックの正規表現に終端アンカーがない",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: bug", "area: js", "area: php", "priority: high"],
+      "body": "## 概要\nJS は `/[0-9]{3}-?[0-9]{4}/`、PHP は `/^[0-9]{3}\\-[0-9]{4}/` で、`abc1234567xyz` のような値も通ってしまう。\n\n## 完了条件\n- [ ] JS・PHP ともに `^[0-9]{3}-?[0-9]{4}$` で完全一致を検証する"
+    },
+    {
+      "title": "DB エラー時に未定義変数 error_msg を参照して ReferenceError になる",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: bug", "area: js", "priority: medium"],
+      "body": "## 概要\n`console.log(error_msg)` が未定義変数を参照しているため、DB エラー時に例外になり、利用者には何も表示されない。\n\n## 完了条件\n- [ ] `res.error_msg` を画面に表示する\n- [ ] fetch 失敗時もメッセージを表示する"
+    },
+    {
+      "title": "市区町村一覧が二重にエスケープされる",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: bug", "area: php", "priority: medium"],
+      "body": "## 概要\n`get_municipality.php` で `htmlspecialchars` してから JSON にし、JS 側でも `textContent` で出力しているため、`&` などが `&amp;` と表示され、初期選択の一致判定もずれる。\n\n## 完了条件\n- [ ] JSON にはエスケープせずに入れる（出力先ごとに1回だけエスケープする原則に揃える）"
+    },
+    {
+      "title": "検索結果画面で町名が「undefined」と表示される",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: bug", "area: js", "priority: medium"],
+      "body": "## 概要\n町名を入力せずに検索すると、結果画面の町名欄に `undefined` と表示される。自作のクエリ解析処理は `+`（空白）も復元しない。\n\n## 完了条件\n- [ ] `URLSearchParams` に置き換える、またはフォームの初期値を PHP 側で描画する"
+    },
+    {
+      "title": "市区町村取得の fetch 処理を共通化し、未使用の関数を削除する",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: refactor", "area: js", "priority: low"],
+      "body": "## 概要\n同じ fetch 処理が3ファイルに重複している。`functions.js` の `getMunicipalityList` は未使用で、値も返していない。\n\n## 完了条件\n- [ ] async 関数1つにまとめ、各画面から呼び出す\n- [ ] 未使用の import / 関数を削除する"
+    },
+    {
+      "title": "ハイフンのパターンから漢字の「一」を外し、全角数字に対応する",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: bug", "area: js", "area: php", "priority: low"],
+      "body": "## 概要\n`PATTERN_HYPHEN` に U+4E00（漢字の「一」）が含まれている。また `３３０−００６３` のような全角数字の入力に対応していない。\n\n## 完了条件\n- [ ] U+4E00 を除外する（意図的な場合は理由をコメントに書く）\n- [ ] PHP は `mb_convert_kana($s, 'n')`、JS は文字コード変換で全角数字を半角にする"
+    },
+    {
+      "title": "町名で0件だったときの再検索を画面に明示する",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: feature", "area: php", "priority: low"],
+      "body": "## 概要\n町名で0件のとき、何も知らせずに市区町村だけで再検索しているため、見出しと結果が食い違う。\n\n## 完了条件\n- [ ] 「町名に一致しなかったため、市区町村全体の結果を表示しています」と表示する"
+    },
+    {
+      "title": "古い HTML 属性を CSS に移行する",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: refactor", "priority: low"],
+      "body": "## 概要\n`<hr size color noshade>` や `<table border>` などの非推奨属性を使っている。\n\n## 完了条件\n- [ ] 見た目を CSS で定義し、HTML から非推奨属性をなくす"
+    },
+    {
+      "title": "README.md を作成する",
+      "milestone": "Phase 1: 不具合修正・ドキュメント",
+      "labels": ["type: docs", "priority: high"],
+      "body": "## 概要\nポートフォリオとして最初に読まれる README がない。\n\n## 完了条件\n- [ ] 概要・デモ URL・スクリーンショット\n- [ ] 構成図・ER 図・技術スタックと選定理由\n- [ ] 工夫した点（ハイフン正規化、KEN_ALL の複数行結合、無停止デプロイ など）\n- [ ] ローカル起動手順（`make init`）"
+    },
+
+    {
+      "title": "サーバー側で入力値を検証し、不正な値には 400 を返す",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: php", "priority: high"],
+      "body": "## 概要\n現在は JS 側だけで検証しており、URL を直接操作すれば任意の値を送れる。\n\n## 完了条件\n- [ ] 郵便番号は `^\\d{3}-?\\d{4}$` を検証する\n- [ ] 都道府県・市区町村は DB に存在する値だけを受け付ける（ホワイトリスト）\n- [ ] 町名は最大文字数を制限する\n- [ ] 不正な値には `http_response_code(400)` とエラー表示を返す"
+    },
+    {
+      "title": "町名検索の LIKE でワイルドカードをエスケープする",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: php", "area: db", "priority: medium"],
+      "body": "## 概要\n町名に `%` や `_` を入れると、意図しない範囲に一致する。\n\n## 完了条件\n- [ ] `addcslashes($s, '%_\\\\')` でエスケープし、`ESCAPE` 句を明示する"
+    },
+    {
+      "title": "config.php を公開ディレクトリの外に置く",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: infra", "priority: high"],
+      "body": "## 概要\nPHP の設定事故でソースがそのまま表示されると、DB パスワードが漏れる。\n\n## 完了条件\n- [ ] 公開ディレクトリの外から読み込むか、環境変数で渡す\n- [ ] `.htaccess` で設定ファイルや隠しファイルへのアクセスを拒否する"
+    },
+    {
+      "title": "セキュリティヘッダ（CSP など）を付与する",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: infra", "priority: medium"],
+      "body": "## 完了条件\n- [ ] `Content-Security-Policy`（インラインスクリプトなし前提の厳しい設定）\n- [ ] `X-Content-Type-Options: nosniff`\n- [ ] `X-Frame-Options: DENY` / `Referrer-Policy`\n- [ ] HSTS\n- [ ] securityheaders.com などで評価を確認する"
+    },
+    {
+      "title": "エラー時に適切な HTTP ステータスとエラーページを返す",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: php", "priority: medium"],
+      "body": "## 概要\nエラー時に `echo` して `return` しているため、壊れた HTML が 200 で返る。\n\n## 完了条件\n- [ ] `http_response_code(500)` を設定し、共通のエラーページを表示する\n- [ ] 詳細はログにだけ残す（現状を維持）"
+    },
+    {
+      "title": "get_municipality.php の応答形式とメソッドを制限する",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: php", "priority: medium"],
+      "body": "## 完了条件\n- [ ] `Content-Type: application/json; charset=utf-8` を付ける\n- [ ] POST 以外は 405 を返す\n- [ ] `json_encode(..., JSON_THROW_ON_ERROR)` を使う\n- [ ] エラー時は 500 と JSON を返す"
+    },
+    {
+      "title": "アプリ用 DB ユーザーを SELECT のみの最小権限にする",
+      "milestone": "Phase 2: セキュリティ強化",
+      "labels": ["type: security", "area: db", "priority: medium"],
+      "body": "## 完了条件\n- [ ] 参照用ユーザー（SELECT のみ）と、データ投入用ユーザーを分ける\n- [ ] GRANT 文を `db/` に置き、README に方針を書く"
+    },
+
+    {
+      "title": "Composer を導入し、PSR-4 オートロードにする",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: chore", "area: php", "priority: high"],
+      "body": "## 完了条件\n- [ ] `composer.json`（PHP 8.3 以上）\n- [ ] `src/` を PSR-4 でオートロードする\n- [ ] Docker 環境で `composer install` できる"
+    },
+    {
+      "title": "PHPUnit でテストを書く",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: test", "area: php", "priority: high"],
+      "body": "## 完了条件\n- [ ] 郵便番号の正規化・検証のテスト（全角・ハイフンなし・不正値）\n- [ ] DB を使う検索処理のテスト（テスト用 DB）\n- [ ] `make test` で実行できる"
+    },
+    {
+      "title": "PHPStan で静的解析する",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: test", "area: php", "priority: medium"],
+      "body": "## 完了条件\n- [ ] レベル 6 以上でエラー 0\n- [ ] `make stan` で実行できる"
+    },
+    {
+      "title": "PHP-CS-Fixer でコードスタイルを PSR-12 にそろえる",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: chore", "area: php", "priority: low"],
+      "body": "## 完了条件\n- [ ] `.php-cs-fixer.dist.php`\n- [ ] `make fmt` で整形、CI で差分チェック"
+    },
+    {
+      "title": "CI にテスト・静的解析を追加し、README にバッジを付ける",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: ci", "priority: medium"],
+      "body": "## 完了条件\n- [ ] PR で PHPUnit / PHPStan / CS チェックが走る\n- [ ] ブランチ保護の必須チェックに追加する（project.json を更新して `make gh-setup`）\n- [ ] README に CI バッジ"
+    },
+    {
+      "title": "都道府県マスタを導入して一覧取得を高速化する",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: performance", "area: db", "priority: medium"],
+      "body": "## 概要\n画面表示のたびに `GROUP BY prefecture ORDER BY MIN(id)` で全行（約12万件）を走査している。\n\n## 完了条件\n- [ ] KEN_ALL の全国地方公共団体コードを取り込み、都道府県・市区町村マスタを作る\n- [ ] `EXPLAIN` で改善前後を比較し、README に記録する"
+    },
+    {
+      "title": "検索結果に件数上限とページングを付ける",
+      "milestone": "Phase 3: 品質・非機能要件",
+      "labels": ["type: performance", "area: php", "priority: low"],
+      "body": "## 概要\n件数に上限がなく、SELECT で `rowCount()` を使っている（移植性が保証されない）。\n\n## 完了条件\n- [ ] `LIMIT` / `OFFSET` によるページング\n- [ ] 件数は `COUNT(*)` または `fetchAll()` してから数える"
+    },
+
+    {
+      "title": "public/ を公開ルートにしたディレクトリ構成へ移行する",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: refactor", "area: php", "priority: high"],
+      "body": "## 完了条件\n- [ ] `public/`（公開）・`src/`・`templates/`・`config/`・`tests/` に分ける\n- [ ] フロントコントローラ（`public/index.php`）でルーティングする\n- [ ] デプロイ設定・Apache の公開先を `current/public` に変更する"
+    },
+    {
+      "title": "郵便番号の値オブジェクト PostalCode を作る",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: refactor", "area: php", "priority: high"],
+      "body": "## 概要\n正規化（全角・各種ハイフン）と検証を1つのクラスに閉じ込め、不正な値を持つインスタンスが作れないようにする。\n\n## 完了条件\n- [ ] `PostalCode::fromString()` / `value()` / `withHyphen()`\n- [ ] 不正値は例外\n- [ ] ユニットテスト"
+    },
+    {
+      "title": "SQL を Repository 層に分離する",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: refactor", "area: php", "area: db", "priority: medium"],
+      "body": "## 完了条件\n- [ ] `PostCodeRepository` インターフェースと PDO 実装\n- [ ] コントローラから SQL をなくす"
+    },
+    {
+      "title": "検索フォームとレイアウトをテンプレートとして共通化する",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: refactor", "area: php", "priority: medium"],
+      "body": "## 概要\n検索画面と結果画面で同じフォーム HTML が重複している。\n\n## 完了条件\n- [ ] 共通レイアウト・部品テンプレートに分ける"
+    },
+    {
+      "title": "郵便番号から住所を返す JSON API を作る",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: feature", "area: php", "priority: medium"],
+      "body": "## 完了条件\n- [ ] `GET /api/address?zip=3300063` → JSON\n- [ ] 400 / 404 / 500 のエラー形式を統一する\n- [ ] API 仕様を README（または OpenAPI）に書く"
+    },
+    {
+      "title": "郵便番号を入力すると住所が自動入力されるフォームのデモを作る",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: feature", "area: js", "priority: low"],
+      "body": "## 完了条件\n- [ ] JSON API を使い、7桁の入力で都道府県・市区町村・町名が自動で入る\n- [ ] 候補が複数ある場合は選択できる"
+    },
+    {
+      "title": "郵便番号データの月次差分を自動で取り込む CLI を作る",
+      "milestone": "Phase 4: 設計刷新・機能追加",
+      "labels": ["type: feature", "area: db", "area: infra", "priority: medium"],
+      "body": "## 概要\n日本郵便のデータは毎月更新される（utf_add_YYMM / utf_del_YYMM）。\n\n## 完了条件\n- [ ] PHP の CLI スクリプトで差分を取り込む（トランザクション内で実行）\n- [ ] cron（または GitHub Actions の schedule）で毎月実行する\n- [ ] 取り込み結果をログに残す"
+    },
+    {
+      "title": "事業所の個別郵便番号を検索できるようにする",
+      "milestone": null,
+      "labels": ["type: feature", "area: db", "priority: low"],
+      "body": "## 概要\n日本郵便の事業所個別郵便番号データ（jigyosyo）も検索対象にする。"
+    },
+    {
+      "title": "フリガナで住所を検索できるようにする",
+      "milestone": null,
+      "labels": ["type: feature", "area: db", "priority: low"],
+      "body": "## 概要\nKEN_ALL のカナ列を取り込み、フリガナでも検索できるようにする。"
+    }
+  ]
+}

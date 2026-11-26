@@ -1,0 +1,39 @@
+name: 不具合報告
+description: 期待どおりに動かない箇所の報告
+title: "[Bug] "
+labels: ["type: bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 何が起きているか
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. search_address.html を開く
+        2. 「330ー0063」と入力して検索
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する動作
+    validations:
+      required: true
+  - type: textarea
+    id: cause
+    attributes:
+      label: 原因（わかれば）
+  - type: dropdown
+    id: env
+    attributes:
+      label: 発生環境
+      options:
+        - ローカル（Docker）
+        - 本番（さくらのクラウド）
+        - 両方
