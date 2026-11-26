@@ -98,7 +98,8 @@
     function search_address(PDO $pdo, string $post_code) :PDOStatement
     {
         // ハイフンの有無で検索処理を分ける
-        if (preg_match('/^[0-9]{3}\-[0-9]{4}/u', $post_code) > 0) { // ハイフンが付いている場合
+        // ^ と $ で、文字列全体が「数字3桁-数字4桁」の形かを判定する（$ が無いと後ろに余計な文字があっても一致する）
+        if (preg_match('/^[0-9]{3}-[0-9]{4}$/', $post_code) === 1) { // ハイフンが付いている場合
             $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE post_code = :post_code');
         } else {    // ハイフンがついていない場合
             $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE post_code_noHyphen = :post_code');

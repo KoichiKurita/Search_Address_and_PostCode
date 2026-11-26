@@ -5,9 +5,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [main, master]   # master は main への名前変更が終わるまでの一時的な指定
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:        # Actions 画面から手動実行も可能にする
 
 permissions:
