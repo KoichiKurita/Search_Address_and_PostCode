@@ -58,9 +58,9 @@ git push -u origin HEAD
 # 5. PR を作成（本文に Closes #5 を書くと、マージ時に Issue が自動で閉じる）
 gh pr create --fill --body "Closes #5"
 
-# 6. CI が通るのを待ってから Squash merge（ブランチも削除される）
-gh pr checks --watch
-gh pr merge --squash --delete-branch
+# 6. CI の起動を待ってから、通ったら Squash merge（ブランチも削除される）
+sleep 10
+gh pr checks --watch && gh pr merge --squash --delete-branch
 
 # 7. main を最新にする
 git switch main && git pull
