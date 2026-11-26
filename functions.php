@@ -7,11 +7,20 @@
      * 作成者：リンクス新越谷 栗田幸一
      * 作成日：2023.3.31
      * 修正日：2026.11.27
+     *
+     * ※ PHP だけのファイルなので、最後の「?>」は書かない（PSR-12）。
+     *   「?>」の後ろに改行や空白があると、それが画面に出力されてしまい、
+     *   ステータスコードやヘッダーを送れなくなる原因になるため。
      */
 
     // DBの認証情報の読み込み
     require_once dirname(__FILE__). '/config.php';
-    
+
+    /**
+     * 町名の入力の最大文字数（これより長い入力は不正な値として扱う）
+     */
+    const TOWN_AREA_MAX_LENGTH = 50;
+
     /**
      * 郵便番号の入力で「ハイフン」として扱う文字の正規表現
      * 環境によって変わらない値なので、config.php ではなくコードに置く
@@ -42,6 +51,34 @@
 
         // preg_replace は一致した箇所をすべて置換する。正規表現の実行に失敗したときは null が返るので空文字にする
         return preg_replace(POST_CODE_HYPHEN_PATTERN, '-', $value) ?? '';
+    }
+
+
+    /**
+     * 郵便番号の書式が正しいかを判定する（数字3桁 + ハイフン（省略可）+ 数字4桁）
+     * JS 側でも同じチェックをしているが、URL を直接書き換えれば JS のチェックは通らずに送れるため、
+     * サーバー側でも必ず検証する
+     * @param string $post_code 正規化済みの郵便番号
+     * @return bool 正しい書式なら true
+     */
+    function is_valid_post_code(string $post_code): bool
+    {
+        return preg_match('/^[0-9]{3}-?[0-9]{4}$/', $post_code) === 1;
+    }
+
+
+    /**
+     * LIKE 検索で使う文字列のワイルドカード（% と _）を、普通の文字として扱えるようにエスケープする
+     * エスケープ文字には「!」を使い、SQL 側で ESCAPE '!' を指定する
+     * （バックスラッシュは、DB の設定や PHP の文字列でも特別な意味を持ち、間違えやすいため使わない）
+     * 例: 「10%」→「10!%」
+     * @param string $value 検索する文字列
+     * @return string エスケープした文字列
+     */
+    function escape_like(string $value): string
+    {
+        // 先にエスケープ文字「!」自体をエスケープしてから、% と _ をエスケープする
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
     }
 
     /**
@@ -106,8 +143,9 @@
             // SQL検索結果には結果表示に必要な列のみ取得する（動作の高速化）
             $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE prefecture = :prefecture AND municipality = :municipality');
         } else {    // 町名がある場合
-            $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE prefecture = :prefecture AND municipality = :municipality AND town_area LIKE :town_area');
-            $statement->bindValue(':town_area', '%'. $town_area. '%', PDO::PARAM_STR);
+            // 入力に含まれる % や _ をワイルドカードとして扱わないよう、escape_like() でエスケープしてから部分一致にする
+            $statement = $pdo->prepare("SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE prefecture = :prefecture AND municipality = :municipality AND town_area LIKE :town_area ESCAPE '!'");
+            $statement->bindValue(':town_area', '%'. escape_like($town_area). '%', PDO::PARAM_STR);
         }
 
         // SQL文のパラメータをバインド
@@ -156,4 +194,55 @@
     {
         return htmlspecialchars(strval($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
-?>
+
+
+    /**
+     * エラーページを表示して、処理を終了する
+     * ステータスコードを正しく返すため、画面に何か出力する前に呼び出すこと
+     * （一度でも出力すると、そのあとでステータスコードを変えられなくなる）
+     * @param int $status HTTP ステータスコード（例: 500）
+     * @param string $message 利用者に表示するメッセージ（エラーの詳細は書かない）
+     * @return never この関数から戻ることはない
+     */
+    function render_error_page(int $status, string $message): never
+    {
+        http_response_code($status);
+        $status_html  = escape($status);
+        $message_html = escape($message);
+
+        echo <<<HTML
+        <!DOCTYPE html>
+        <html lang="ja">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>エラー（{$status_html}）</title>
+                <link rel="stylesheet" href="css/style.css">
+            </head>
+            <body>
+                <h1>エラーが発生しました</h1>
+                <p id="error-message" role="alert">{$message_html}</p>
+                <p><a href="search_address.html">住所検索へ</a> ／ <a href="search_postcode.php">郵便番号検索へ</a></p>
+            </body>
+        </html>
+        HTML;
+        exit;
+    }
+
+
+    /**
+     * JSON を返して、処理を終了する（get_municipality.php などの API 用）
+     * @param int $status HTTP ステータスコード
+     * @param mixed $data JSON にする値
+     * @return never この関数から戻ることはない
+     */
+    function send_json(int $status, mixed $data): never
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+
+        // JSON_THROW_ON_ERROR: 変換に失敗したら false ではなく例外にする
+        // JSON_UNESCAPED_UNICODE: 日本語を \u3042 のような形にせず、そのまま出力する
+        echo json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        exit;
+    }

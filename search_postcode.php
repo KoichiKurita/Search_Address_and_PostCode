@@ -1,29 +1,26 @@
-<?php declare(strict_types=1); ?>
-
-<!--
-    Webアプリ実践課題
-    郵便番号検索(search_postcode.php)
-    作成者：リンクス新越谷 栗田幸一
-    作成日：2023.4.7
--->
-
-<!-- メインルーチン -->
-<!-- 住所フォームの入力内容から郵便番号を検索する -->
 <?php
+    declare(strict_types=1);
+
+    /**
+     * Webアプリ実践課題
+     * 郵便番号検索(search_postcode.php)
+     * 作成者：リンクス新越谷 栗田幸一
+     * 作成日：2023.4.7
+     * 修正日：2026.11.27
+     *
+     * 住所（都道府県・市区町村・町名）を入力するフォームを表示する
+     * ※ ステータスコードを正しく返せるよう、HTML を出力する前にすべての処理を終える
+     */
+
     require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み
 
-    // DBに接続し、都道府県データを検索する。
+    // DBに接続し、都道府県の一覧を取得する
     try {
-
         $pdo = connect();   // DB接続
-
-        // DBから都道府県一覧データを取得する
-        $statement = get_prefecture($pdo);
-
+        $prefectures = get_prefecture($pdo)->fetchAll(PDO::FETCH_COLUMN);
     } catch (PDOException $e) {
-        echo '都道府県データの取得に失敗しました。';
         error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
-        return;
+        render_error_page(500, '都道府県データの取得に失敗しました。時間をおいて再度お試しください。');
     }
 ?>
 
@@ -45,9 +42,9 @@
                     <label for="prefecture">都道府県<span class="required">（必須）</span>：
                         <select name="prefecture" id="prefecture" required>
                             <option value="">選択してください</option>
-                            <?php while ($row = $statement->fetch(PDO::FETCH_ASSOC)): ?>
-                                <option value="<?=escape($row['prefecture'])?>"><?=escape($row['prefecture'])?></option>
-                            <?php endwhile; ?>
+                            <?php foreach ($prefectures as $prefecture): ?>
+                                <option value="<?=escape($prefecture)?>"><?=escape($prefecture)?></option>
+                            <?php endforeach; ?>
                         </select>
                     </label>
                 </div>
@@ -62,7 +59,8 @@
 
                 <div class="address-input">
                     <label for="town_area">町名：
-                        <input type="text" name="town_area" id="town_area">
+                        <!-- maxlength はブラウザ側の制限。サーバー側でも同じ文字数で検証している -->
+                        <input type="text" name="town_area" id="town_area" maxlength="<?=TOWN_AREA_MAX_LENGTH?>">
                     </label>
                 </div>
             </div>
