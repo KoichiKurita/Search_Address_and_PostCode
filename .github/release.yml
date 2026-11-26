@@ -1,0 +1,21 @@
+# gh release create --generate-notes で作られるリリースノートの分類（PR のラベルで振り分け）
+changelog:
+  categories:
+    - title: 🔒 セキュリティ
+      labels: ["type: security"]
+    - title: ✨ 新機能
+      labels: ["type: feature"]
+    - title: 🐛 不具合修正
+      labels: ["type: bug"]
+    - title: ⚡ 性能改善
+      labels: ["type: performance"]
+    - title: ♻️ リファクタリング
+      labels: ["type: refactor"]
+    - title: 🧪 テスト
+      labels: ["type: test"]
+    - title: 📝 ドキュメント
+      labels: ["type: docs"]
+    - title: 🔧 環境・CI
+      labels: ["type: chore", "type: ci"]
+    - title: その他
+      labels: ["*"]

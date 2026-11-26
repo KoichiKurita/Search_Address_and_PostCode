@@ -1,3 +1,21 @@
 /build/
-config.php
+/config.php
 /js/config.js
+
+# ローカル開発環境
+.env
+/db/work/
+
+# GitHub 設定スクリプト用の秘密情報（scripts/github/deploy.env.example を参照）
+/scripts/github/deploy.env
+deploy_key
+deploy_key.pub
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Python
+__pycache__/

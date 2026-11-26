@@ -1,0 +1,108 @@
+# 郵便番号・住所検索 CI/CD
+# - Pull Request 作成・更新時   : 構文チェック（lint）のみ
+# - master への push / マージ時 : lint → さくらのクラウドへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:        # Actions 画面から手動実行も可能にする
+
+permissions:
+  contents: read            # GITHUB_TOKEN の権限は読み取りのみ（最小権限）
+
+jobs:
+  lint:
+    name: PHP 構文チェック
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'          # サーバーと同じバージョンに合わせる
+          tools: none
+
+      - name: php -l（全 .php ファイル）
+        run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+
+      - name: シェルスクリプト・Python の構文チェック
+        run: |
+          bash -n deploy/activate.sh && bash -n deploy/rollback.sh
+          python3 -m py_compile db/ken_all_to_sql.py scripts/github/setup.py
+          python3 -c "import json; json.load(open('scripts/github/project.json', encoding='utf-8'))"
+
+  deploy:
+    name: さくらのクラウドへデプロイ
+    needs: lint
+    # PR では動かさず、master への push（マージ含む）と手動実行のときだけ動かす
+    # Variables（APP_DIR）が未登録の間は、サーバー準備前とみなしてデプロイをスキップする
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.APP_DIR != ''
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    # 連続 push でデプロイが同時に走らないようにする（実行中のものは止めずに順番待ち）
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      APP_DIR: ${{ vars.APP_DIR }}             # 例: /var/www/postcode
+      RELEASE: ${{ github.sha }}               # コミットID をリリース名にする
+      RELOAD_SERVICE: ${{ vars.RELOAD_SERVICE }} # 例: php8.3-fpm（OPcache 対策。空なら何もしない）
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH の準備
+        # secrets はスクリプトに直接埋め込まず、環境変数経由で渡す（インジェクション対策）
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          {
+            echo "Host deploy-target"
+            echo "  HostName $DEPLOY_HOST"
+            echo "  User $DEPLOY_USER"
+            echo "  Port $DEPLOY_PORT"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking yes"   # 登録済みのホスト鍵以外には接続しない（なりすまし対策）
+          } > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: ファイルをアップロード（releases/<コミットID>）
+        run: |
+          ssh deploy-target "mkdir -p '$APP_DIR/releases/$RELEASE'"
+          rsync -rltz --delete --chmod=D755,F644 \
+            --exclude-from=deploy/rsync-exclude.txt \
+            ./ "deploy-target:$APP_DIR/releases/$RELEASE/"
+
+      - name: 公開ディレクトリを新リリースに切り替え
+        id: activate
+        run: ssh deploy-target "bash -s" -- "$APP_DIR" "$RELEASE" "$RELOAD_SERVICE" < deploy/activate.sh
+
+      - name: ヘルスチェック
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          # DB に接続するページを叩き、HTTP 200 が返るかを確認する
+          curl -fsS -o /dev/null --retry 3 --retry-delay 5 --max-time 10 \
+            "$APP_URL/search_postcode.php"
+          echo "OK: $APP_URL"
+
+      - name: 失敗時は直前のリリースへ自動ロールバック
+        if: failure() && steps.activate.outcome == 'success'
+        run: ssh deploy-target "bash -s" -- "$APP_DIR" "$RELOAD_SERVICE" < deploy/rollback.sh
+
+      - name: 後片付け（秘密鍵を削除）
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
