@@ -14,13 +14,13 @@
     require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み
     require_once dirname(__FILE__). '/config.php';      // 外部関数読み込み
 
-    // 入力された郵便番号
-    $post_code = (string)($_GET['post-code'] ?? '');
+    // 入力された郵便番号（前後の空白は取り除く）
+    $post_code = trim((string)($_GET['post-code'] ?? ''));
 
-    // ハイフンをUnicode「U+002D(-)」に変換する
-    if (preg_match(PATTERN_HYPHEN, $post_code) === 1)  {
-        $post_code = preg_replace(PATTERN_HYPHEN, '-', $post_code);
-    }
+    // 各種ハイフン（全角ハイフン・長音記号など）を Unicode「U+002D(-)」に変換する
+    // preg_replace は一致した箇所をすべて置換し、一致しなければ元の文字列をそのまま返す
+    // 正規表現の実行に失敗したときは null が返るので、その場合は空文字にする
+    $post_code = preg_replace(PATTERN_HYPHEN, '-', $post_code) ?? '';
 
     // DBに接続し、郵便番号を検索する。
     try {
@@ -56,8 +56,8 @@
             <div class="post-code-input-wrapper">
                 <div class="post-code-input">
                     <label for="post-code">郵便番号<span class="required">（必須）</span>：
-                        <input type="text" name="post-code" id="post-code">
-                        <!-- 郵便番号の書式で入力させる -->
+                        <!-- 検索した郵便番号を入力欄に残す（JS ではなく PHP で値を埋め込む） -->
+                        <input type="text" name="post-code" id="post-code" value="<?=escape($post_code)?>" required>
                     </label>
                 </div>
             </div>
