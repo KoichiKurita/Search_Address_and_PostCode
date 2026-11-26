@@ -4,8 +4,6 @@
     住所検索フォーム（search_address.html / result_address.php）で共通して使う
  */
 
-import {PATTERN_HYPHEN} from "./config.js";
-
 /**
  * 郵便番号の書式：数字3桁 + ハイフン（省略可）+ 数字4桁
  * ^ と $ で「文字列全体」がこの形かを検査する（付けないと abc1234567xyz も一致してしまう）
@@ -13,18 +11,30 @@ import {PATTERN_HYPHEN} from "./config.js";
 const PATTERN_POST_CODE = /^[0-9]{3}-?[0-9]{4}$/u;
 
 /**
- * config.js のハイフンのパターンに g フラグを付けたもの
- * g が無いと replace() は最初に見つかった1文字しか置換しない
+ * 「ハイフン」として扱う文字（PHP 側の functions.php の POST_CODE_HYPHEN_PATTERN と同じもの）
+ * 環境によって変わらない値なので、config.js ではなくコードに置く
+ * g フラグを付けているので、replace() で一致した箇所をすべて置換する
+ * U+4E00（一 漢数字のいち）は意図的に含めている（日本語入力で「-」のつもりで「一」に変換されることがあるため）
  */
-const PATTERN_HYPHEN_ALL = new RegExp(PATTERN_HYPHEN.source, 'gu');
+const PATTERN_HYPHEN_ALL = /[\u{30FC}\u{2010}-\u{2015}\u{2212}\u{FF70}\u{2053}\u{2E3A}\u{301C}\u{3030}\u{2500}\u{4E00}\u{FE63}\u{FF0D}\u{2043}\u{FE58}\u{23AF}\u{208B}\u{007E}]/gu;
+
+/**
+ * 全角数字（０〜９）を半角数字にする
+ * 全角数字の文字コードは、半角数字より 0xFEE0 だけ大きいことを利用する
+ * @param {string} value 変換する文字列
+ * @return {string} 変換した文字列
+ */
+const toHalfWidthDigits = (value) =>
+    value.replace(/[０-９]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 0xFEE0));
 
 /**
  * 郵便番号を正規化する
- * 前後の空白を取り除き、全角ハイフン・長音記号などの各種ハイフンを半角ハイフン（U+002D）にそろえる
+ * 全角数字を半角にし、前後の空白（全角スペースを含む）を取り除き、各種ハイフンを半角「-」にそろえる
+ * 例: 「３３０ー００６３」→「330-0063」
  * @param {string} value 入力された郵便番号
  * @return {string} 正規化した郵便番号
  */
-export const normalizePostCode = (value) => value.trim().replace(PATTERN_HYPHEN_ALL, '-');
+export const normalizePostCode = (value) => toHalfWidthDigits(value).trim().replace(PATTERN_HYPHEN_ALL, '-');
 
 /**
  * 郵便番号の書式が正しいかを判定する

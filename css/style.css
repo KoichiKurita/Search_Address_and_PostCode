@@ -36,3 +36,27 @@ form {
 table {
     margin-bottom: 20px;
 }
+
+/* 区切り線（以前の <hr size="5" color="black" noshade> と同じ見た目） */
+.divider {
+    border: none;
+    border-top: 5px solid black;
+    margin: 20px 0;
+}
+
+/* 検索結果の表（以前の <table border="1"> の代わり） */
+.result-table {
+    border-collapse: collapse;
+}
+
+.result-table th,
+.result-table td {
+    border: 1px solid #333;
+    padding: 4px 8px;
+}
+
+/* 町名で見つからず、市区町村全体の結果を表示しているときのお知らせ */
+.notice {
+    color: #8a5a00;
+    font-weight: bold;
+}

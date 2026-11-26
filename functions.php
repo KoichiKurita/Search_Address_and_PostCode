@@ -6,11 +6,43 @@
      * 郵便番号・住所検索(functions.php)
      * 作成者：リンクス新越谷 栗田幸一
      * 作成日：2023.3.31
-     * 修正日：2023.5.25
+     * 修正日：2026.11.27
      */
 
     // DBの認証情報の読み込み
     require_once dirname(__FILE__). '/config.php';
+    
+    /**
+     * 郵便番号の入力で「ハイフン」として扱う文字の正規表現
+     * 環境によって変わらない値なので、config.php ではなくコードに置く
+     *
+     * U+30FC（ー 長音記号）、U+2010〜U+2015（各種ダッシュ）、U+2212（− マイナス）、U+FF0D（－ 全角ハイフン）など
+     * U+4E00（一 漢数字のいち）は意図的に含めている。
+     *   日本語入力で「-」のつもりで「一」に変換されてしまうことがあり、
+     *   郵便番号は数字だけなので「一」を「-」に置き換えても困ることがないため。
+     *
+     * 参考:
+     * https://qiita.com/ryounagaoka/items/4cf5191d1a2763667add
+     * https://hydrocul.github.io/wiki/blog/2014/1101-hyphen-minus-wave-tilde.html
+     */
+    const POST_CODE_HYPHEN_PATTERN = '/[\x{30FC}\x{2010}-\x{2015}\x{2212}\x{FF70}\x{2053}\x{2E3A}\x{301C}\x{3030}\x{2500}\x{4E00}\x{FE63}\x{FF0D}\x{2043}\x{FE58}\x{23AF}\x{208B}\x{007E}]/u';
+
+
+    /**
+     * 入力された郵便番号を正規化する
+     * 全角数字・全角スペースを半角にし、前後の空白を取り除き、各種ハイフンを半角「-」にそろえる
+     * 例: 「３３０ー００６３」→「330-0063」
+     * @param string $value 入力された郵便番号
+     * @return string 正規化した郵便番号
+     */
+    function normalize_post_code(string $value): string
+    {
+        // mb_convert_kana の n は「全角数字→半角」、s は「全角スペース→半角」
+        $value = trim(mb_convert_kana($value, 'ns', 'UTF-8'));
+
+        // preg_replace は一致した箇所をすべて置換する。正規表現の実行に失敗したときは null が返るので空文字にする
+        return preg_replace(POST_CODE_HYPHEN_PATTERN, '-', $value) ?? '';
+    }
 
     /**
      * PDOインスタンスを取得する関数
