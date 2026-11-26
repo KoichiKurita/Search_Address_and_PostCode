@@ -8,7 +8,7 @@ lint（php -l） → rsync でアップロード → シンボリックリンク
 ```
 
 Pull Request の段階では lint だけが動き、デプロイはされません。
-GitHub の Variables（`APP_DIR`）が未登録の間は、デプロイの処理は自動で飛ばされます。
+リポジトリの Variable `DEPLOY_ENABLED` が `true` のときだけデプロイします。止めたいときは `gh variable set DEPLOY_ENABLED --body false` を実行します（停止スイッチ）。
 
 前提: さくらのレンタルサーバ **スタンダード以上**（SSH が使えるプラン）
 
@@ -130,6 +130,7 @@ rm ~/deploy_key
 | Variable | `DEPLOY_PORT` | `22` |
 | Variable | `APP_DIR` | `/home/<アカウント名>/apps/postcode` |
 | Variable | `APP_URL` | `https://<アカウント名>.sakura.ne.jp/postcode`（末尾の `/` なし） |
+| Variable（リポジトリ全体） | `DEPLOY_ENABLED` | `true`（`false` でデプロイ停止） |
 
 ---
 

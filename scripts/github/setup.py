@@ -233,6 +233,11 @@ def step_secrets(cfg: dict, repo: str) -> None:
         gh("secret", "set", name, "--env", env_name, "--repo", repo, input_text=value, mutate=True,
            show=f"gh secret set {name} --env {env_name}")
 
+    # デプロイの停止スイッチ（リポジトリ全体の Variable）。止めたいときは false にする
+    enabled = values.get("DEPLOY_ENABLED", "true")
+    print(f"  Variable（リポジトリ）: DEPLOY_ENABLED = {enabled}")
+    gh("variable", "set", "DEPLOY_ENABLED", "--body", enabled, "--repo", repo, mutate=True)
+
 
 def step_tag(cfg: dict, repo: str) -> None:
     tag = cfg["baseline_tag"]
