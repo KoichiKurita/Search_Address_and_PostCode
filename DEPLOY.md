@@ -1,6 +1,6 @@
 # 自動デプロイ（GitHub Actions → さくらのレンタルサーバ）
 
-`master` ブランチに push（Pull Request のマージを含む）すると、GitHub Actions が次の順に処理します。
+`main` ブランチに push（Pull Request のマージを含む）すると、GitHub Actions が次の順に処理します。
 
 ```
 lint（php -l） → rsync でアップロード → シンボリックリンク切り替え → ヘルスチェック
@@ -136,7 +136,7 @@ rm ~/deploy_key
 
 ## 4. 初回デプロイと公開先の切り替え
 
-1. GitHub の **Actions → CI/CD → Run workflow**（または `gh workflow run deploy.yml --ref master`）で、デプロイを実行する
+1. GitHub の **Actions → CI/CD → Run workflow**（または `gh workflow run deploy.yml --ref main`）で、デプロイを実行する
    - この時点では `~/www/postcode` は旧ファイルのままなので、ヘルスチェックは旧サイトに対して行われる
 2. サーバーで、リリースが配置されたかを確認する
    ```sh
@@ -155,7 +155,7 @@ rm ~/deploy_key
    rm -rf ~/www/postcode.bak
    ```
 
-以降は、`master` にマージするだけで自動的にデプロイされます。
+以降は、`main` にマージするだけで自動的にデプロイされます。
 
 ## 5. ロールバック
 

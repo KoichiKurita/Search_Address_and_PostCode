@@ -7,8 +7,8 @@ project.json の内容に合わせて、次のものを作成・更新する。�
   labels       ラベル
   milestones   マイルストーン（フェーズ）
   issues       Issue（同じタイトルの Issue があれば作らない）
-  ruleset      master のブランチ保護（PR 必須・CI 必須・強制 push / 削除の禁止）
-  environment  デプロイ用 Environment（production：master からのみデプロイ可）
+  ruleset      main のブランチ保護（PR 必須・CI 必須・強制 push / 削除の禁止）
+  environment  デプロイ用 Environment（production：main からのみデプロイ可）
   secrets      Environment の Secrets / Variables（scripts/github/deploy.env がある場合のみ）
   tag          ベースラインのタグとリリース（v0.1.0）
 

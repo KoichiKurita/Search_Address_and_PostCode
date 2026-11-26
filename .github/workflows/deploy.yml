@@ -1,13 +1,13 @@
 # 郵便番号・住所検索 CI/CD
 # - Pull Request 作成・更新時   : 構文チェック（lint）のみ
-# - master への push / マージ時 : lint → さくらのレンタルサーバへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
+# - main への push / マージ時 : lint → さくらのレンタルサーバへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
 name: CI/CD
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]   # master は main への名前変更が終わるまでの一時的な指定
   pull_request:
-    branches: [master]
+    branches: [main, master]
   workflow_dispatch:        # Actions 画面から手動実行も可能にする
 
 permissions:
@@ -38,10 +38,10 @@ jobs:
   deploy:
     name: さくらのレンタルサーバへデプロイ
     needs: lint
-    # PR では動かさず、master への push（マージ含む）と手動実行のときだけ動かす
+    # PR では動かさず、デフォルトブランチへの push（マージ含む）と手動実行のときだけ動かす
     # リポジトリの Variable「DEPLOY_ENABLED」が 'true' のときだけデプロイする（停止スイッチ）
     # ※ Environment の Variables はジョブの if を評価する時点ではまだ読めないため、リポジトリ側の Variable で判定する
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true'
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: production
