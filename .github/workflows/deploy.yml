@@ -18,7 +18,7 @@ jobs:
     name: PHP 構文チェック
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -39,8 +39,9 @@ jobs:
     name: さくらのレンタルサーバへデプロイ
     needs: lint
     # PR では動かさず、master への push（マージ含む）と手動実行のときだけ動かす
-    # Variables（APP_DIR）が未登録の間は、サーバー準備前とみなしてデプロイをスキップする
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.APP_DIR != ''
+    # リポジトリの Variable「DEPLOY_ENABLED」が 'true' のときだけデプロイする（停止スイッチ）
+    # ※ Environment の Variables はジョブの if を評価する時点ではまだ読めないため、リポジトリ側の Variable で判定する
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -53,7 +54,7 @@ jobs:
       APP_DIR: ${{ vars.APP_DIR }}     # 例: /home/<アカウント名>/apps/postcode（~/www の外）
       RELEASE: ${{ github.sha }}       # コミットID をリリース名にする
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: SSH の準備
         # secrets はスクリプトに直接埋め込まず、環境変数経由で渡す（インジェクション対策）
