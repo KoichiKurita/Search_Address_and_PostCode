@@ -146,4 +146,23 @@ final class QueriesTest extends TestCase
         $rows = search_post_code($this->pdo, '東京都', '千代田区', '100%_')->fetchAll(PDO::FETCH_COLUMN);
         $this->assertSame(['100-0099'], $rows);
     }
+
+    public function testCountPostCode(): void
+    {
+        $this->assertSame(2, count_post_code($this->pdo, '埼玉県', 'さいたま市浦和区'));
+        $this->assertSame(1, count_post_code($this->pdo, '埼玉県', 'さいたま市浦和区', '高'));
+        $this->assertSame(0, count_post_code($this->pdo, '埼玉県', 'さいたま市浦和区', '%'));
+    }
+
+    public function testSearchPostCodeReturnsOnePageInIdOrder(): void
+    {
+        // 1ページ 1 件で、1ページ目と2ページ目を取得する。並び順は id の順で固定されている
+        $page1 = search_post_code($this->pdo, '埼玉県', 'さいたま市浦和区', null, 1, 0)->fetchAll(PDO::FETCH_COLUMN);
+        $page2 = search_post_code($this->pdo, '埼玉県', 'さいたま市浦和区', null, 1, 1)->fetchAll(PDO::FETCH_COLUMN);
+        $page3 = search_post_code($this->pdo, '埼玉県', 'さいたま市浦和区', null, 1, 2)->fetchAll(PDO::FETCH_COLUMN);
+
+        $this->assertSame(['330-0063'], $page1);
+        $this->assertSame(['330-0062'], $page2);
+        $this->assertSame([], $page3);
+    }
 }

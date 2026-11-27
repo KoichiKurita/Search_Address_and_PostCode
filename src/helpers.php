@@ -18,6 +18,11 @@ declare(strict_types=1);
 const TOWN_AREA_MAX_LENGTH = 50;
 
 /**
+ * 郵便番号検索の結果を、1ページに何件ずつ表示するか
+ */
+const POST_CODE_PAGE_SIZE = 50;
+
+/**
  * 郵便番号の入力で「ハイフン」として扱う文字の正規表現
  * 環境によって変わらない値なので、config.php ではなくコードに置く
  *
@@ -103,4 +108,61 @@ function escape(mixed $value): string
         return '';
     }
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+
+/**
+ * ページ番号の入力値を、1 以上の整数にする
+ * 数字以外・0・空文字などの不正な値は 1 ページ目として扱う
+ * @param string $value クエリパラメータ（page）の値
+ * @return int ページ番号（1 以上）
+ */
+function parse_page(string $value): int
+{
+    // ctype_digit は「すべて 0〜9 の数字か」を判定する（マイナス記号や小数点、空文字は false）
+    // 桁数が多すぎる値で整数が溢れないよう、6桁までに制限する
+    if (!ctype_digit($value) || strlen($value) > 6) {
+        return 1;
+    }
+    return max(1, (int)$value);
+}
+
+
+/**
+ * 総件数と1ページの件数から、最後のページ番号を求める（0件のときも 1 ページとする）
+ * @param int $total 総件数
+ * @param int $per_page 1ページの件数
+ * @return int 最後のページ番号（1 以上）
+ */
+function last_page(int $total, int $per_page): int
+{
+    return max(1, intdiv($total + $per_page - 1, $per_page));
+}
+
+
+/**
+ * ページ切り替えのリンクに表示するページ番号の一覧を作る
+ * 最初・最後のページと、現在のページの前後 2 ページを表示し、間は省略（null）にする
+ * 例: 現在 6 / 最後 20 → [1, null, 4, 5, 6, 7, 8, null, 20]
+ * @param int $current 現在のページ番号
+ * @param int $last 最後のページ番号
+ * @return list<int|null> ページ番号の一覧（null は「…」で表示する省略部分）
+ */
+function pagination_pages(int $current, int $last): array
+{
+    $pages = [];
+    $previous = 0;
+    for ($page = 1; $page <= $last; $page++) {
+        $is_edge = $page === 1 || $page === $last;
+        $is_near = abs($page - $current) <= 2;
+        if (!$is_edge && !$is_near) {
+            continue;
+        }
+        if ($page - $previous > 1) {
+            $pages[] = null;    // 前に表示したページと離れているので、間に「…」を入れる
+        }
+        $pages[] = $page;
+        $previous = $page;
+    }
+    return $pages;
 }

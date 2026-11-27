@@ -60,3 +60,37 @@ table {
     color: #8a5a00;
     font-weight: bold;
 }
+
+/* 何件目から何件目までを表示しているか */
+.result-range {
+    color: #555;
+}
+
+/* 検索結果のページ切り替え */
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 16px 0;
+}
+
+.pagination a,
+.pagination span {
+    min-width: 2em;
+    padding: 4px 8px;
+    border: 1px solid #999;
+    text-align: center;
+}
+
+/* 現在のページ */
+.pagination [aria-current="page"] {
+    background: #333;
+    border-color: #333;
+    color: #fff;
+    font-weight: bold;
+}
+
+/* 省略（…）は枠を付けない */
+.pagination .ellipsis {
+    border: none;
+}

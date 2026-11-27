@@ -51,30 +51,86 @@ function get_municipality(PDO $pdo, string $selected_prefecture): PDOStatement
 
 
 /**
- * 郵便番号をデータベースから検索する関数
+ * 住所から郵便番号を検索するときの WHERE 句を作る（件数の取得と、1ページ分の取得で共通に使う）
+ * @param string|null $town_area 町名（null のときは町名で絞り込まない）
+ * @return string WHERE 句（WHERE は含まない）
+ */
+function post_code_condition(?string $town_area): string
+{
+    $condition = 'prefecture = :prefecture AND municipality = :municipality';
+    if ($town_area !== null) {
+        // 入力に含まれる % や _ をワイルドカードとして扱わないよう、escape_like() でエスケープしてから部分一致にする
+        $condition .= " AND town_area LIKE :town_area ESCAPE '!'";
+    }
+    return $condition;
+}
+
+
+/**
+ * post_code_condition() で作った WHERE 句のパラメータに値を割り当てる
+ * @param PDOStatement $statement prepare 済みの SQL 文
+ * @param string $prefecture 都道府県
+ * @param string $municipality 市区町村
+ * @param string|null $town_area 町名（null のときは町名で絞り込まない）
+ */
+function bind_post_code_condition(PDOStatement $statement, string $prefecture, string $municipality, ?string $town_area): void
+{
+    $statement->bindValue(':prefecture', $prefecture, PDO::PARAM_STR);
+    $statement->bindValue(':municipality', $municipality, PDO::PARAM_STR);
+    if ($town_area !== null) {
+        $statement->bindValue(':town_area', '%' . escape_like($town_area) . '%', PDO::PARAM_STR);
+    }
+}
+
+
+/**
+ * 住所に一致する郵便番号の件数を数える関数（ページングの総件数に使う）
  * @param PDO $pdo データベースに接続した PHP Data Object
  * @param string $prefecture 都道府県
  * @param string $municipality 市区町村
  * @param string|null $town_area 町名（null のときは町名で絞り込まない）
+ * @return int 件数
+ */
+function count_post_code(PDO $pdo, string $prefecture, string $municipality, ?string $town_area = null): int
+{
+    $statement = $pdo->prepare('SELECT COUNT(*) FROM post_codes WHERE ' . post_code_condition($town_area));
+    bind_post_code_condition($statement, $prefecture, $municipality, $town_area);
+    $statement->execute();
+
+    $count = $statement->fetchColumn();
+    return is_numeric($count) ? (int)$count : 0;
+}
+
+
+/**
+ * 住所から郵便番号を検索する関数（1ページ分だけ取得する）
+ * @param PDO $pdo データベースに接続した PHP Data Object
+ * @param string $prefecture 都道府県
+ * @param string $municipality 市区町村
+ * @param string|null $town_area 町名（null のときは町名で絞り込まない）
+ * @param int $limit 取得する最大件数（1ページの件数）
+ * @param int $offset 先頭から何件飛ばすか（(ページ番号 - 1) × 1ページの件数）
  * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
  */
-function search_post_code(PDO $pdo, string $prefecture, string $municipality, ?string $town_area = null): PDOStatement
-{
-    // 町名（town_area）の有無でSQL文を変える
-    if ($town_area === null) {  // 町名がない場合
-        // SQL検索結果には結果表示に必要な列のみ取得する（動作の高速化）
-        $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE prefecture = :prefecture AND municipality = :municipality');
-    } else {    // 町名がある場合
-        // 入力に含まれる % や _ をワイルドカードとして扱わないよう、escape_like() でエスケープしてから部分一致にする
-        $statement = $pdo->prepare("SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE prefecture = :prefecture AND municipality = :municipality AND town_area LIKE :town_area ESCAPE '!'");
-        $statement->bindValue(':town_area', '%' . escape_like($town_area) . '%', PDO::PARAM_STR);
-    }
+function search_post_code(
+    PDO $pdo,
+    string $prefecture,
+    string $municipality,
+    ?string $town_area = null,
+    int $limit = POST_CODE_PAGE_SIZE,
+    int $offset = 0
+): PDOStatement {
+    // ORDER BY id で並び順を固定する（全国地方公共団体コード順）
+    // 並び順が決まっていないと、ページを切り替えたときに同じ行が2回出たり、出ない行ができたりする
+    $statement = $pdo->prepare(
+        'SELECT post_code, prefecture, municipality, town_area FROM post_codes'
+        . ' WHERE ' . post_code_condition($town_area)
+        . ' ORDER BY id LIMIT :limit OFFSET :offset'
+    );
+    bind_post_code_condition($statement, $prefecture, $municipality, $town_area);
+    $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
 
-    // SQL文のパラメータをバインド
-    $statement->bindValue(':prefecture', $prefecture, PDO::PARAM_STR);
-    $statement->bindValue(':municipality', $municipality, PDO::PARAM_STR);
-
-    // 郵便番号検索実行（SQL文を実行）
     $statement->execute();
 
     return $statement;
