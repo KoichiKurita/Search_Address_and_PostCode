@@ -1,9 +1,8 @@
 # PHPStan（静的解析）の設定  make stan で実行する
-#   level 9: 型の扱いを厳しく確認する（mixed 型の値をそのまま使うと指摘される）
-#   最も厳しい max は、DB から取り出した行の型が決まっていないため、
-#   Phase 4 で Repository 層（型付きのオブジェクトで行を返す）を作ってから目指す
+#   level max: 最も厳しいレベル。型の決まっていない値（mixed）をそのまま使うと指摘される
+#   DB から取り出した値は Repository（src/Infrastructure）の中で型を確かめ、外には型の決まった値だけを出している
 parameters:
-    level: 9
+    level: max
     paths:
         - src
         - tests

@@ -20,7 +20,7 @@ $municipality = query_string($_GET, 'municipality');
 $town_area    = trim(query_string($_GET, 'town_area'));
 $page         = parse_page(query_string($_GET, 'page'));   // 表示するページ番号（不正な値は 1）
 
-$rows_postcode = [];    // 検索結果（表示するページの分だけ）
+$addresses = [];        // 検索結果（表示するページの分だけ。App\Domain\Address の配列）
 $total = 0;             // 検索結果の総件数
 $last_page = 1;         // 最後のページ番号
 $offset = 0;            // 表示するページの先頭が、全体の何件目の次か（0 から数える）
@@ -28,16 +28,16 @@ $error_message = '';    // 入力エラーのメッセージ（空ならエラ�
 $is_fallback = false;   // 町名で見つからず、市区町村だけで検索し直したかどうか
 
 try {
-    $pdo = connect();   // DB接続
+    $repository = post_code_repository();   // DB に接続し、郵便番号データを検索する Repository を作る
 
     // 都道府県の一覧（プルダウンの表示と、入力値の検証の両方に使う）
-    $prefectures = get_prefecture($pdo)->fetchAll(PDO::FETCH_COLUMN);
+    $prefectures = $repository->prefectures();
 
     // 入力値の検証：都道府県・市区町村は「DB に存在する値か」で確かめる（ホワイトリスト方式）
     // in_array の第3引数 true は、型まで含めて厳密に比較する指定
     if (!in_array($prefecture, $prefectures, true)) {
         $error_message = '都道府県を選択してください。';
-    } elseif (!in_array($municipality, get_municipality($pdo, $prefecture)->fetchAll(PDO::FETCH_COLUMN), true)) {
+    } elseif (!in_array($municipality, $repository->municipalities($prefecture), true)) {
         $error_message = '市区町村を選択してください。';
     } elseif (mb_strlen($town_area) > TOWN_AREA_MAX_LENGTH) {
         $error_message = '町名は' . TOWN_AREA_MAX_LENGTH . '文字以内で入力してください。';
@@ -51,12 +51,12 @@ try {
         $town_condition = $town_area !== '' ? $town_area : null;
 
         // まず件数を数える（ページングの総件数に使う）
-        $total = count_post_code($pdo, $prefecture, $municipality, $town_condition);
+        $total = $repository->countByArea($prefecture, $municipality, $town_condition);
 
         // 町名で0件だった場合は、都道府県+市区町村で検索し直す
         if ($total === 0 && $town_condition !== null) {
             $town_condition = null;
-            $total = count_post_code($pdo, $prefecture, $municipality);
+            $total = $repository->countByArea($prefecture, $municipality);
             $is_fallback = $total > 0;
         }
 
@@ -66,8 +66,7 @@ try {
 
         // 表示するページの分だけ取得する（例: 2ページ目なら 51〜100件目）
         $offset = ($page - 1) * POST_CODE_PAGE_SIZE;
-        $rows_postcode = search_post_code($pdo, $prefecture, $municipality, $town_condition, POST_CODE_PAGE_SIZE, $offset)
-            ->fetchAll(PDO::FETCH_ASSOC);
+        $addresses = $repository->searchByArea($prefecture, $municipality, $town_condition, POST_CODE_PAGE_SIZE, $offset);
     }
 } catch (PDOException $e) {
     error_log(basename(__FILE__) . ': ' . $e->getMessage());   // 詳細はサーバーログにのみ記録する
@@ -144,7 +143,7 @@ $page_url = fn (int $number): string => '?' . http_build_query([
 
             <?php if ($total > 0): ?>
                 <!-- 何件目から何件目までを表示しているか -->
-                <p class="result-range"><?=$offset + 1?>〜<?=$offset + count($rows_postcode)?>件目を表示（<?=$page?> / <?=$last_page?> ページ）</p>
+                <p class="result-range"><?=$offset + 1?>〜<?=$offset + count($addresses)?>件目を表示（<?=$page?> / <?=$last_page?> ページ）</p>
             <?php endif; ?>
             <?php if ($is_fallback): ?>
                 <!-- 町名では見つからず、市区町村全体の結果を表示していることを利用者に知らせる -->
@@ -159,12 +158,12 @@ $page_url = fn (int $number): string => '?' . http_build_query([
                     <th>町名</th>
                 </tr>
 
-                <?php foreach ($rows_postcode as $row_postcode): ?>
+                <?php foreach ($addresses as $address): ?>
                 <tr>
-                    <td><?=escape($row_postcode['post_code'])?></td>
-                    <td><?=escape($row_postcode['prefecture'])?></td>
-                    <td><?=escape($row_postcode['municipality'])?></td>
-                    <td><?=escape($row_postcode['town_area'])?></td>
+                    <td><?=escape($address->postalCode->withHyphen())?></td>
+                    <td><?=escape($address->prefecture)?></td>
+                    <td><?=escape($address->municipality)?></td>
+                    <td><?=escape($address->townArea)?></td>
                 </tr>
                 <?php endforeach; ?>
             </table>

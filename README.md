@@ -32,7 +32,7 @@
 | フロントエンド | HTML / CSS / JavaScript（ES Modules） | ビルド不要で、ブラウザ標準の機能だけで動かす |
 | データベース | MySQL 8.0 | 本番のレンタルサーバで使える DB に合わせている |
 | 開発環境 | Docker Compose（PHP + MySQL + phpMyAdmin）、Make | `make init` だけで、本番と同じバージョンの環境が起動する |
-| テスト・静的解析 | PHPUnit 12、PHPStan（レベル 9）、PHP-CS-Fixer（PSR-12） | 関数単体と DB の検索をテストし、型の誤りを実行前に見つけ、書き方をそろえる |
+| テスト・静的解析 | PHPUnit 12、PHPStan（レベル max）、PHP-CS-Fixer（PSR-12） | 関数単体と DB の検索をテストし、型の誤りを実行前に見つけ、書き方をそろえる |
 | CI/CD | GitHub Actions、rsync over SSH | PR で構文チェック・テスト・静的解析、すべて通ったものだけ `main` へのマージで本番へ自動デプロイ |
 | 本番環境 | さくらのレンタルサーバ（FreeBSD） | 低コストで運用できる共用サーバ |
 | プロジェクト管理 | GitHub Issues / Milestones / Rulesets（Python スクリプトで設定） | 設定を `project.json` で管理し、何度実行しても同じ状態にする |
@@ -107,6 +107,8 @@ erDiagram
 郵便番号は `App\Domain\PostalCode`（値オブジェクト）で表します。正しい郵便番号からしか作れないので、
 検索の関数 `search_address(PDO $pdo, PostalCode $postal_code)` には、**検証されていない文字列を型として渡せません**。
 作られた時点で「ハイフンなしの7桁」に正規化されているので、ハイフンの有無で SQL を分ける必要もなくなりました。
+DB の検索は Repository（`App\Domain\PostCodeRepository` と、その PDO による実装）にまとめ、検索結果は型の決まった `Address` オブジェクトで返します。
+画面は SQL も配列のキーも知らずに `$address->prefecture` のように使えるため、PHPStan を最も厳しい **max レベル**にしても指摘は0件です。
 郵便番号の「ハイフン」には、全角ハイフン（－）、長音記号（ー）、マイナス記号（−）など、見た目が似た文字が多くあります。これらをまとめて半角の `-` にそろえ、全角数字も半角に変換しています。
 漢数字の「一」も意図的に `-` として扱っています。日本語入力で「-」のつもりが「一」に変換されることがあり、郵便番号は数字だけなので、置き換えても困ることがないためです。
 同じ正規化を **JS（送信前）と PHP（受信後）の両方**で行い、JS が動かない場合でも正しく検索できるようにしています。
@@ -155,8 +157,10 @@ erDiagram
 ├── result_postcode.php        郵便番号検索（結果画面）
 ├── get_municipality.php       市区町村一覧を返す API（JSON）
 ├── functions.php              DB 接続、エラーページ・JSON の応答
-├── src/                       入力の正規化・検証（helpers.php）、DB の検索（queries.php）
-│   └── Domain/                値オブジェクト（PostalCode）
+├── src/
+│   ├── Domain/                値オブジェクト（PostalCode・Address）と Repository のインターフェース
+│   ├── Infrastructure/        Repository の実装（PDO。SQL はここだけ）
+│   └── helpers.php            画面で使う小さな関数（エスケープ・ページングの計算など）
 ├── tests/                     PHPUnit のテスト（Unit: 関数単体、Integration: DB の検索）
 ├── css/ js/                   スタイルと JavaScript（ES Modules）
 ├── db/                        テーブル定義、サンプルデータ、日本郵便データの変換スクリプト
@@ -184,7 +188,7 @@ http://localhost:8080/search_address.html を開き、`330-0063` で検索でき
 | `make lint` | PHP の構文チェック（CI と同じ内容） |
 | `make composer-install` | Composer で PHPUnit などをインストールする（初回のみ） |
 | `make test` | PHPUnit でテストを実行する |
-| `make stan` | PHPStan で静的解析する（レベル 9） |
+| `make stan` | PHPStan で静的解析する（レベル max） |
 | `make fmt` | PHP-CS-Fixer でコードを整形する（PSR-12） |
 | `make tools` | phpMyAdmin を起動する（http://localhost:8081） |
 | `make help` | コマンドの一覧 |
