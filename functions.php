@@ -19,6 +19,10 @@ declare(strict_types=1);
 // DBの認証情報の読み込み
 require_once dirname(__FILE__) . '/config.php';
 
+// Composer のオートローダー（src/ のクラスを、use で書くだけで読み込めるようにする）
+// 本番には、デプロイのときに CI が作った本番用のオートローダー（開発用パッケージを含まない）を送っている
+require_once dirname(__FILE__) . '/vendor/autoload.php';
+
 // DB や画面に依存しない関数（src/helpers.php）と、DB を検索する関数（src/queries.php）の読み込み
 // テストしやすいように、ファイルを分けている
 require_once dirname(__FILE__) . '/src/helpers.php';

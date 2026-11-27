@@ -11,6 +11,8 @@ declare(strict_types=1);
  * どれも PDO を引数で受け取るので、テストでは SQLite のメモリ上の DB を渡して確かめられる
  */
 
+use App\Domain\PostalCode;
+
 require_once __DIR__ . '/helpers.php';   // escape_like() を使うため
 
 
@@ -138,25 +140,20 @@ function search_post_code(
 
 
 /**
- * 郵便番号をデータベースから検索する関数
+ * 郵便番号から住所を検索する関数
+ * 引数を PostalCode 型にしているので、正規化・検証されていない文字列は渡せない（型で守る）
  * @param PDO $pdo データベースに接続した PHP Data Object
- * @param string $post_code 郵便番号
+ * @param PostalCode $postal_code 郵便番号
  * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
  */
-function search_address(PDO $pdo, string $post_code): PDOStatement
+function search_address(PDO $pdo, PostalCode $postal_code): PDOStatement
 {
-    // ハイフンの有無で検索処理を分ける
-    // ^ と $ で、文字列全体が「数字3桁-数字4桁」の形かを判定する（$ が無いと後ろに余計な文字があっても一致する）
-    if (preg_match('/^[0-9]{3}-[0-9]{4}$/', $post_code) === 1) { // ハイフンが付いている場合
-        $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE post_code = :post_code');
-    } else {    // ハイフンがついていない場合
-        $statement = $pdo->prepare('SELECT post_code, prefecture, municipality, town_area FROM post_codes WHERE post_code_noHyphen = :post_code');
-    }
-
-    // SQL文のパラメータをバインド
-    $statement->bindValue(':post_code', $post_code, PDO::PARAM_STR);
-
-    // 郵便番号検索実行（SQL文を実行）
+    // PostalCode は常に「ハイフンなしの7桁」を取り出せるので、ハイフンの有無で SQL を分ける必要がない
+    $statement = $pdo->prepare(
+        'SELECT post_code, prefecture, municipality, town_area FROM post_codes'
+        . ' WHERE post_code_noHyphen = :post_code ORDER BY id'
+    );
+    $statement->bindValue(':post_code', $postal_code->digits(), PDO::PARAM_STR);
     $statement->execute();
 
     return $statement;

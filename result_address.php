@@ -12,15 +12,20 @@ declare(strict_types=1);
  * ※ ステータスコードを正しく返せるよう、HTML を出力する前にすべての処理を終える
  */
 
+use App\Domain\PostalCode;
+
 require_once dirname(__FILE__) . '/functions.php';   // 外部関数読み込み（config.php も functions.php の中で読み込む）
 
-// 入力された郵便番号を正規化する（全角数字・各種ハイフン・前後の空白に対応）
-$post_code = normalize_post_code(query_string($_GET, 'post-code'));
+// 入力された郵便番号（画面に入力値を残すため、正規化した文字列も持っておく）
+$input = PostalCode::normalize(query_string($_GET, 'post-code'));
+
+// PostalCode に変換する。正しい郵便番号でなければ null になる（このあと検索できるのは PostalCode だけ）
+$postal_code = PostalCode::tryFromString($input);
 
 $rows = [];             // 検索結果
 $error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）
 
-if (!is_valid_post_code($post_code)) {
+if ($postal_code === null) {
     // 書式が正しくない場合は DB を検索せず、400（Bad Request）とエラーメッセージを返す
     // JS のチェックは URL を直接書き換えれば通らずに送れるので、サーバー側でも必ず検証する
     http_response_code(400);
@@ -32,7 +37,7 @@ if (!is_valid_post_code($post_code)) {
         // 郵便番号から住所を検索する
         // fetchAll で配列として受け取り、件数は count() で数える
         // （SELECT 文に対する rowCount() は、DB の種類によっては正しい件数を返さないため）
-        $rows = search_address($pdo, $post_code)->fetchAll(PDO::FETCH_ASSOC);
+        $rows = search_address($pdo, $postal_code)->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log(basename(__FILE__) . ': ' . $e->getMessage());   // 詳細はサーバーログにのみ記録する
         render_error_page(500, '住所の検索に失敗しました。時間をおいて再度お試しください。');
@@ -58,7 +63,7 @@ if (!is_valid_post_code($post_code)) {
                 <div class="post-code-input">
                     <label for="post-code">郵便番号<span class="required">（必須）</span>：
                         <!-- 検索した郵便番号を入力欄に残す（JS ではなく PHP で値を埋め込む） -->
-                        <input type="text" name="post-code" id="post-code" value="<?=escape($post_code)?>" required>
+                        <input type="text" name="post-code" id="post-code" value="<?=escape($input)?>" required>
                     </label>
                 </div>
             </div>
@@ -73,8 +78,9 @@ if (!is_valid_post_code($post_code)) {
             <hr class="divider">
 
             <!-- フォームに入力された郵便番号とデータベースで検索した結果を表形式で表示する -->
-            <h1 id="result_heading">郵便番号「<?=escape($post_code)?>」の住所の検索結果：<?=count($rows)?>件</h1>
-            <table class="result-table">
+            <!-- 見出しは、入力の形（ハイフンの有無）に関係なく「330-0063」の形にそろえる -->
+            <!-- エラーがないときは $postal_code が必ず作られているので、null の考慮はいらない（PHPStan も確認している） -->
+            <h1 id="result_heading">郵便番号「<?=escape($postal_code->withHyphen())?>」の住所の検索結果：<?=count($rows)?>件</h1>            <table class="result-table">
                 <tr>
                     <th>郵便番号</th>
                     <th>住所</th>
