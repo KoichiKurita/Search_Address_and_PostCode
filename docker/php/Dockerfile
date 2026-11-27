@@ -7,6 +7,12 @@ RUN docker-php-ext-install pdo_mysql opcache
 # .htaccess で使う Apache のモジュールを有効化（ヘッダーの付与・リダイレクト）
 RUN a2enmod headers rewrite
 
+# Composer（PHP のパッケージ管理）と、Composer がパッケージを展開するのに使う unzip・git を入れる
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends unzip git \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 # 開発用の php.ini
 COPY php.ini /usr/local/etc/php/conf.d/zz-dev.ini
 

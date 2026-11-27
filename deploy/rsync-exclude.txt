@@ -11,6 +11,12 @@ docker/
 docker-compose.yml
 Makefile
 scripts/
+tests/
+vendor/
+composer.json
+composer.lock
+phpunit.xml
+.phpunit.cache/
 *.md
 config_dummy.php
 js/config_dummy.js

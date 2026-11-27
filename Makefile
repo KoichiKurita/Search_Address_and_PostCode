@@ -6,13 +6,17 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 COMPOSE := docker compose
+
+# app コンテナで一時的にコマンドを実行する（自分のユーザー ID で動かし、作られるファイルを root の持ち物にしない）
+RUN_APP := $(COMPOSE) run --rm --no-deps --user "$$(id -u):$$(id -g)" -e COMPOSER_HOME=/tmp/composer app
+
 WORK_DIR := db/work
 # 日本郵便「住所の郵便番号（1レコード1行、UTF-8形式）」全国一括データ
 # 現在の URL を先に試し、使えなければ移転前の URL を試す（KEN_ALL_URL=... で上書き可）
 KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
 KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
 
-.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint gh-setup gh-setup-dry
+.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint composer-install test gh-setup gh-setup-dry
 
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -61,6 +65,12 @@ db-reset: ## DB を削除して作り直す（サンプルデータに戻る）
 
 lint: ## PHP の構文チェック（CI と同じ内容）
 	$(COMPOSE) run --rm --no-deps app sh -c "find . -name '*.php' -not -path './.git/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l"
+
+composer-install: ## Composer のパッケージ（PHPUnit など）を vendor/ に入れる
+	$(RUN_APP) composer install
+
+test: ## PHPUnit でテストを実行する（初回は make composer-install が必要）
+	$(RUN_APP) vendor/bin/phpunit
 
 gh-setup-dry: ## GitHub 設定の確認だけ（何も変更しない）
 	python3 scripts/github/setup.py all --dry-run

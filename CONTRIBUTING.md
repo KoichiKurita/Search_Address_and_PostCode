@@ -49,6 +49,7 @@ gh issue develop 5 --name fix/5-fullwidth-hyphen --base main --checkout
 # 3. 実装して動作確認
 make up
 make lint
+make test
 
 # 4. コミットして push
 git add -A
