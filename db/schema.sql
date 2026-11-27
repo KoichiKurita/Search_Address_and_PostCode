@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS post_codes (
     post_code_noHyphen CHAR(7)      NOT NULL COMMENT '郵便番号（ハイフンなし 例: 3300063）',
     prefecture         VARCHAR(10)  NOT NULL COMMENT '都道府県',
     municipality       VARCHAR(50)  NOT NULL COMMENT '市区町村',
-    town_area          VARCHAR(255) NOT NULL DEFAULT '' COMMENT '町域',
+    -- 町域は、番地や通り名を列挙した長いものがある（最長: 鹿児島県鹿児島市「川上町（３６４９、…）」の297文字）
+    -- VARCHAR の長さは「文字数」なので、余裕をもって1000文字にしている（変換スクリプトでも長さを事前に確認する）
+    town_area          VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '町域',
     PRIMARY KEY (id),
     KEY idx_post_code (post_code),
     KEY idx_post_code_nohyphen (post_code_noHyphen),

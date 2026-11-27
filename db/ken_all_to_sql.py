@@ -18,6 +18,9 @@ import sys
 ROWS_PER_FILE = 10000     # 1ファイルあたりの行数（約1.2MB。phpMyAdminのアップロード上限に収まる大きさ）
 ROWS_PER_INSERT = 500     # 1つのINSERT文に含める行数
 
+# post_codes.town_area 列の長さ（db/schema.sql と合わせる）。これを超える町域があれば、SQL を出力せずに止める
+TOWN_AREA_MAX_LENGTH = 1000
+
 # 町域欄に入る「住所ではない注記」は空文字として扱う
 NO_TOWN_NOTES = ('以下に掲載がない場合',)
 
@@ -78,6 +81,16 @@ def main():
     for zip7, pref, muni, town in read_rows(csv_path):
         town = normalize_town(town, muni)
         records.append((f'{zip7[:3]}-{zip7[3:]}', zip7, pref, muni, town))
+
+    # 町域の長さを確認する（DB の列より長いと、取り込みの途中でエラーになり、途中までしか入らないため）
+    longest = max(records, key=lambda r: len(r[4]))
+    print(f'町域の最長: {len(longest[4])} 文字（{longest[0]} {longest[2]}{longest[3]}）／ 列の上限: {TOWN_AREA_MAX_LENGTH} 文字')
+    too_long = [r for r in records if len(r[4]) > TOWN_AREA_MAX_LENGTH]
+    if too_long:
+        for r in too_long:
+            print(f'  長すぎる町域: {len(r[4])} 文字 {r[0]} {r[2]}{r[3]} {r[4][:30]}…', file=sys.stderr)
+        print('db/schema.sql の town_area の長さと TOWN_AREA_MAX_LENGTH を広げてください。SQL は出力していません。', file=sys.stderr)
+        sys.exit(1)
 
     file_no = 0
     for start in range(0, len(records), ROWS_PER_FILE):
