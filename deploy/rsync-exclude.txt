@@ -5,7 +5,8 @@
 .gitattributes
 .editorconfig
 .env*
-db/
+# db/ は送る（郵便番号データの取り込み bin/import-postcodes.php が db/refresh_masters.sql を使う。public/ の外なので URL からは見えない）
+db/work/
 deploy/
 docker/
 docker-compose.yml

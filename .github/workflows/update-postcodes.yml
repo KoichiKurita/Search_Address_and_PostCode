@@ -1,0 +1,80 @@
+# 郵便番号データの月次更新（#35）
+#   日本郵便は、毎月末日ごろに郵便番号データを更新する。その数日後に、最新の全件データを本番の DB に取り込む。
+#
+#   GitHub Actions                                     さくらのレンタルサーバ
+#   ─────────────────────────────────────────          ────────────────────────────────────────
+#   1. utf_ken_all.zip をダウンロード
+#   2. db/ken_all_to_sql.py で CSV に変換（注記の除去・長さの確認）
+#   3. rsync で CSV を送る ───────────────────────▶  ~/apps/postcode/import/post_codes.csv
+#   4. SSH で取り込みコマンドを実行 ──────────────▶  php current/bin/import-postcodes.php
+#                                                         （検証 → 1つのトランザクションで全件入れ替え）
+#   5. API で住所を検索できるかを確認
+#
+#   失敗すると、GitHub からメールで通知される。取り込みに失敗しても、DB は元のまま残る。
+name: 郵便番号データの更新
+
+on:
+  schedule:
+    # 毎月3日の 3:17（日本時間）。cron は UTC で書くので、前日の 18:17 になる
+    # 0 分ちょうどは GitHub Actions が混み合って遅れやすいので、少しずらしている
+    - cron: '17 18 2 * *'
+  workflow_dispatch:        # Actions 画面から手動実行も可能にする
+
+permissions:
+  contents: read            # GITHUB_TOKEN の権限は読み取りのみ（最小権限）
+
+jobs:
+  update:
+    name: 郵便番号データを取り込む
+    # デプロイと同じ停止スイッチ（DEPLOY_ENABLED が 'true' のときだけ動く）
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    # デプロイと同時に動かないようにする（同じグループの実行は、順番待ちになる）
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      APP_DIR: ${{ vars.APP_DIR }}
+      APP_URL: ${{ vars.APP_URL }}
+      PHP_CLI: ${{ vars.PHP_CLI || 'php' }}      # サーバーの PHP のコマンド（例: /usr/local/bin/php8.3）
+      # 日本郵便「住所の郵便番号（1レコード1行、UTF-8形式）」全国一括データ（現在の URL → 移転前の URL の順に試す）
+      KEN_ALL_URL: https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
+      KEN_ALL_URL_ALT: https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 日本郵便のデータをダウンロード
+        run: |
+          curl -fsSL --retry 3 --retry-delay 10 -o utf_ken_all.zip "$KEN_ALL_URL" \
+            || curl -fsSL --retry 3 --retry-delay 10 -o utf_ken_all.zip "$KEN_ALL_URL_ALT"
+          unzip -o -q utf_ken_all.zip
+          ls -l utf_ken_all.csv
+
+      - name: CSV に変換（注記の除去・町域の長さの確認）
+        run: python3 db/ken_all_to_sql.py utf_ken_all.csv post_codes.csv --format csv
+
+      - uses: ./.github/actions/setup-ssh
+        with:
+          private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          user: ${{ secrets.DEPLOY_USER }}
+          port: ${{ vars.DEPLOY_PORT || '22' }}
+
+      - name: CSV をサーバーに送る
+        run: |
+          ssh deploy-target "mkdir -p '$APP_DIR/import'"
+          rsync -tz --chmod=F600 post_codes.csv "deploy-target:$APP_DIR/import/post_codes.csv"
+
+      - name: DB に取り込む
+        run: ssh deploy-target "'$PHP_CLI' '$APP_DIR/current/bin/import-postcodes.php' '$APP_DIR/import/post_codes.csv'"
+
+      - name: 取り込んだデータで検索できるかを確認
+        run: |
+          curl -fsS --max-time 10 "$APP_URL/api/address?zip=3300063" | grep -q '"count":1'
+          echo "OK: $APP_URL"
+
+      - name: 後片付け（秘密鍵を削除）
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

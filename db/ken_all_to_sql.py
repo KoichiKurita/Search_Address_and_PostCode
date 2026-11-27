@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-日本郵便の郵便番号データ（UTF-8版 utf_ken_all.csv）を post_codes テーブル用の
-INSERT 文に変換し、phpMyAdmin で取り込める大きさのファイルに分割して出力する。
+日本郵便の郵便番号データ（UTF-8版 utf_ken_all.csv）を、post_codes テーブルに取り込める形に変換する。
+注記（「以下に掲載がない場合」など）の除去や、町域の長さの確認もここで行う。
 
 使い方:
-    1. https://www.post.japanpost.jp/zipcode/download.html から
+    1. https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html から
        「住所の郵便番号（1レコード1行、UTF-8形式）」の utf_ken_all.zip をダウンロードして展開
-    2. python3 ken_all_to_sql.py utf_ken_all.csv out
-    3. out/post_codes_001.sql から順に phpMyAdmin の「インポート」で取り込む
+    2-a. 月次の自動更新・make seed-full（bin/import-postcodes.php で取り込む CSV を1つ出力する）
+           python3 ken_all_to_sql.py utf_ken_all.csv post_codes.csv --format csv
+    2-b. phpMyAdmin で手作業で取り込む場合（INSERT 文を、アップロードできる大きさに分けて出力する）
+           python3 ken_all_to_sql.py utf_ken_all.csv out
+         out/post_codes_001.sql から順に、phpMyAdmin の「インポート」で取り込む
 
 標準ライブラリのみで動作します（Python 3.8 以降）。
 """
+import argparse
 import csv
 import os
 import sys
@@ -70,12 +74,23 @@ def read_rows(csv_path: str):
             yield tuple(pending)
 
 
+def write_csv(records, out_path: str) -> None:
+    """bin/import-postcodes.php で取り込む CSV を出力する（見出し行なし。列: 郵便番号7桁, 都道府県, 市区町村, 町域）"""
+    with open(out_path, 'w', encoding='utf-8', newline='') as out:
+        writer = csv.writer(out, lineterminator='\n')
+        for _post_code, zip7, pref, muni, town in records:
+            writer.writerow([zip7, pref, muni, town])
+    print(f'{len(records)} 件を出力しました: {out_path}')
+
+
 def main():
-    if len(sys.argv) != 3:
-        print('使い方: python3 ken_all_to_sql.py utf_ken_all.csv 出力フォルダ', file=sys.stderr)
-        sys.exit(1)
-    csv_path, out_dir = sys.argv[1], sys.argv[2]
-    os.makedirs(out_dir, exist_ok=True)
+    parser = argparse.ArgumentParser(description='日本郵便の utf_ken_all.csv を、post_codes テーブルに取り込める形に変換する')
+    parser.add_argument('csv_path', help='日本郵便の utf_ken_all.csv')
+    parser.add_argument('out', help='出力先（--format sql: フォルダ / --format csv: ファイル）')
+    parser.add_argument('--format', choices=['sql', 'csv'], default='sql',
+                        help='sql: phpMyAdmin 用の INSERT 文（初期値） / csv: bin/import-postcodes.php 用の CSV')
+    args = parser.parse_args()
+    csv_path, out_dir = args.csv_path, args.out
 
     records = []
     for zip7, pref, muni, town in read_rows(csv_path):
@@ -91,7 +106,13 @@ def main():
             print(f'  長すぎる町域: {len(r[4])} 文字 {r[0]} {r[2]}{r[3]} {r[4][:30]}…', file=sys.stderr)
         print('db/schema.sql の town_area の長さと TOWN_AREA_MAX_LENGTH を広げてください。SQL は出力していません。', file=sys.stderr)
         sys.exit(1)
+    
+    if args.format == 'csv':
+        write_csv(records, args.out)
+        return
 
+    os.makedirs(out_dir, exist_ok=True)
+    
     file_no = 0
     for start in range(0, len(records), ROWS_PER_FILE):
         file_no += 1
