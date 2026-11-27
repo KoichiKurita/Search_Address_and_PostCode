@@ -5,6 +5,12 @@
     作成日：2023.3.31
  */
 
+ /* hidden 属性を付けた要素は、display を指定したクラスがあっても必ず隠す
+   （ブラウザ標準の [hidden] の指定は優先度が低く、.autofill-form label の display: flex に負けてしまうため） */
+[hidden] {
+    display: none !important;
+}
+
 /* 検索フォーム */
 #direction, .note, .required, #error-message {
     color: red;
@@ -142,6 +148,12 @@ table {
     margin-bottom: 4px;
     padding: 6px 8px;
     text-align: left;
+}
+
+/* 絞り込んだ件数 */
+.candidate-count {
+    margin: 0;
+    color: #555;
 }
 
 /* プログラムの例 */

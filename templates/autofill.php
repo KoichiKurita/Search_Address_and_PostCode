@@ -18,6 +18,12 @@
     <!-- 検索中・見つからない・候補が複数、などの状態を表示する（role="status" で読み上げソフトにも伝わる） -->
     <p id="autofill-status" role="status"></p>
 
+    <!-- 候補が多いときだけ、町域の名前で絞り込む入力欄を出す（例: 452-0961 は66件） -->
+    <label for="candidate-filter" id="candidate-filter-label" hidden>候補を絞り込む：
+        <input type="search" id="candidate-filter" placeholder="町域の名前の一部（例：一番）" aria-describedby="candidate-count">
+    </label>
+    <p id="candidate-count" class="candidate-count" aria-live="polite" hidden></p>
+
     <!-- 1つの郵便番号に複数の町域がある場合は、ここに候補のボタンを並べる -->
     <ul id="autofill-candidates" class="candidates" hidden></ul>
 

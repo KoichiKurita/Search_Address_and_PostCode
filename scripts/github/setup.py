@@ -128,11 +128,19 @@ def step_milestones(cfg: dict, repo: str) -> None:
 
 
 def step_issues(cfg: dict, repo: str) -> None:
-    existing = {i["title"]: i["number"] for i in json.loads(
-        gh("issue", "list", "--repo", repo, "--state", "all", "--limit", "1000", "--json", "number,title"))}
+    existing = {i["title"]: i for i in json.loads(
+        gh("issue", "list", "--repo", repo, "--state", "all", "--limit", "1000", "--json", "number,title,milestone"))}
     created = 0
     for issue in cfg["issues"]:
-        if issue["title"] in existing:
+        cur = existing.get(issue["title"])
+        if cur is not None:
+            # 既存の Issue は、マイルストーンだけを project.json に合わせる（本文やラベルは、作成後に手で直すこともあるので触らない）
+            want = issue.get("milestone")
+            have = (cur.get("milestone") or {}).get("title")
+            if want and want != have:
+                gh("issue", "edit", str(cur["number"]), "--repo", repo, "--milestone", want, mutate=True,
+                   show=f"gh issue edit #{cur['number']} --milestone \"{want}\"")
+                print(f"  マイルストーンを変更: #{cur['number']} {issue['title']} → {want}")
             continue
         args = ["issue", "create", "--repo", repo, "--title", issue["title"], "--body-file", "-"]
         for label in issue.get("labels", []):

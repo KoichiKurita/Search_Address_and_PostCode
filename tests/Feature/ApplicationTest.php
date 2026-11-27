@@ -273,6 +273,8 @@ final class ApplicationTest extends TestCase
         $this->assertSame(200, $response->status);
         $this->assertStringContainsString('<title>住所の自動入力デモ</title>', $response->body);
         $this->assertStringContainsString('autocomplete="postal-code"', $response->body);
+        // 候補が多いときの絞り込みの入力欄（最初は隠しておき、JavaScript が必要なときだけ出す）
+        $this->assertStringContainsString('<label for="candidate-filter" id="candidate-filter-label" hidden>', $response->body);
         $this->assertStringContainsString('<script src="js/autofill_page.js" type="module"></script>', $response->body);
     }
 
