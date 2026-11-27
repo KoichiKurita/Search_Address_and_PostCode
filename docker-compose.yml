@@ -1,6 +1,6 @@
 # 郵便番号・住所検索 ローカル開発環境
 #   起動: make up   → http://localhost:8080/search_address.html
-#   本番（さくらのクラウド）と同じ PHP 8.3 / MySQL 8.0 にそろえている
+#   本番（さくらのレンタルサーバー）と同じ PHP 8.3 / MySQL 8.0 にそろえている
 services:
   app:
     build: ./docker/php
@@ -15,8 +15,9 @@ services:
     environment:
       DB_HOST: db
       DB_DATABASE: ${DB_DATABASE:-postcode}
-      DB_USERNAME: ${DB_USERNAME:-app}
-      DB_PASSWORD: ${DB_PASSWORD:-app_password}
+      # アプリは参照専用ユーザー（SELECT だけ）で接続する（最小権限の原則）
+      DB_USERNAME: ${DB_READONLY_USERNAME:-app_ro}
+      DB_PASSWORD: ${DB_READONLY_PASSWORD:-app_ro_password}
     depends_on:
       db:
         condition: service_healthy     # DB が起動しきってから app を起動する
@@ -30,8 +31,12 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       MYSQL_DATABASE: ${DB_DATABASE:-postcode}
-      MYSQL_USER: ${DB_USERNAME:-app}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+      # データ投入・管理用のユーザー（この DB の全権限）。make seed-full と make db で使う
+      MYSQL_USER: ${DB_LOADER_USERNAME:-loader}
+      MYSQL_PASSWORD: ${DB_LOADER_PASSWORD:-loader_password}
+      # 参照専用ユーザー（03_readonly_user.sh が初回起動時に作る）
+      DB_READONLY_USERNAME: ${DB_READONLY_USERNAME:-app_ro}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:-app_ro_password}
       TZ: Asia/Tokyo
     ports:
       - "127.0.0.1:${DB_PORT:-3307}:3306"   # 自分の PC からだけ接続できる（DBクライアント用）
@@ -40,11 +45,16 @@ services:
       # 初回起動時だけ、ファイル名の順に自動実行される
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./db/seed_sample.sql:/docker-entrypoint-initdb.d/02_seed_sample.sql:ro
+      - ./docker/mysql/03_readonly_user.sh:/docker-entrypoint-initdb.d/03_readonly_user.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      # mysqladmin ping は「接続を拒否された」場合も成功扱いになるため、初期化の途中でも healthy になってしまう。
+      # アプリと同じ参照専用ユーザーで、TCP（127.0.0.1）経由で実際に検索できるかを確認する。
+      # 初期化中の一時サーバーは TCP を受け付けないので、ユーザー作成とデータ投入が終わるまで healthy にならない
+      test: ["CMD-SHELL", "mysql -h 127.0.0.1 -u$$DB_READONLY_USERNAME -p$$DB_READONLY_PASSWORD -e 'SELECT 1 FROM post_codes LIMIT 1' $$MYSQL_DATABASE > /dev/null 2>&1"]
       interval: 5s
       timeout: 3s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
   # 必要なときだけ起動する: make tools → http://localhost:8081
   phpmyadmin:

@@ -90,6 +90,13 @@
         $pdo = new PDO(DB_NAME, DB_USER, DB_PASS);    // DB接続
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);  // SQLをプリコンパイルしてから実行。処理速度向上とSQLインジェクション対策
+
+        // この接続を読み取り専用にする（このアプリは検索だけで、DB に書き込まない）
+        //   本番のレンタルサーバでは SELECT だけの DB ユーザーを作れないため、その代わりの安全策として、
+        //   バグなどで書き込み系の SQL（INSERT・UPDATE・DELETE・DROP など）が実行されても、DB 側で拒否されるようにする
+        //   ※ 権限そのものを制限するわけではないので、プリペアドステートメントと組み合わせて使う
+        $pdo->exec('SET SESSION TRANSACTION READ ONLY');
+
         return $pdo;
     }
 
