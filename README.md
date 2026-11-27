@@ -81,7 +81,22 @@ erDiagram
         VARCHAR(50) municipality "市区町村"
         VARCHAR(1000) town_area "町域（最長297文字のものがある）"
     }
-```
+    prefectures {
+        INT id PK
+        VARCHAR(10) name UK "都道府県"
+        INT sort_order "並び順（post_codes の最小 id）"
+    }
+    municipalities {
+        INT id PK
+        INT prefecture_id FK
+        VARCHAR(50) name "市区町村"
+        INT sort_order "並び順（post_codes の最小 id）"
+    }
+    prefectures ||--o{ municipalities : "含む"
+    prefectures ||..o{ post_codes : "集計元（refresh_masters.sql）"
+````
+
+- `prefectures` / `municipalities` は、プルダウンに出す一覧を `post_codes` から集計しておく**マスタテーブル**です。郵便番号データを取り込むたびに [`db/refresh_masters.sql`](db/refresh_masters.sql) で作り直します
 
 - インデックス：`post_code`、`post_code_noHyphen`、`(prefecture, municipality)`
 - 文字コード：`utf8mb4` / 照合順序 `utf8mb4_bin`（全角・半角やカナの違いを区別して、完全一致で検索するため）
@@ -113,7 +128,18 @@ erDiagram
 - 本番が FreeBSD のため、デプロイスクリプトを POSIX sh だけで書き、CI でも `dash` で構文を確認している
 - `main` ブランチの保護（PR 必須・CI 必須）と組み合わせて、構文エラーのあるコードが本番に出ないようにしている
 
-### 5. 非同期処理の競合対策
+### 5. 計測にもとづく性能改善
+都道府県のプルダウンは、以前は画面を開くたびに `post_codes`（124,527件）を `GROUP BY` で集計していました。
+全国データと同じ件数のデータで `EXPLAIN ANALYZE` を取り、**12万行を毎回読んでいる**ことを確かめたうえで、一覧を集計済みのマスタテーブルに分けました。
+
+| クエリ | 改善前 | 改善後 |
+|---|---|---|
+| 都道府県の一覧 | 124,527行を走査して集計（中央値 16.3ms） | 47行を読むだけ（中央値 **0.13ms**） |
+| 市区町村の一覧（北海道・188件） | 一時テーブルで並べ替え（中央値 2.05ms） | インデックスの順に取り出すだけ（中央値 **0.32ms**） |
+
+改善の前後で、一覧の内容と並び順が完全に一致することも確認しています。
+
+### 6. 非同期処理の競合対策
 都道府県をすばやく切り替えたとき、遅れて届いた古いリクエストの結果で市区町村の一覧が上書きされないように、リクエストに番号を付けて最新の結果だけを反映しています（[`js/municipality.js`](js/municipality.js)）。
 
 ## ディレクトリ構成

@@ -15,16 +15,15 @@ require_once __DIR__ . '/helpers.php';   // escape_like() を使うため
 
 
 /**
- * 都道府県を郵便番号データベースから取得する関数
+ * 都道府県の一覧を取得する関数（都道府県マスタから）
  * @param PDO $pdo データベースに接続した PHP Data Object
  * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
  */
 function get_prefecture(PDO $pdo): PDOStatement
 {
-    // 郵便番号データベースから都道府県の一覧データを取得
-    // 日本郵便のデータは全国地方公共団体コード順（北海道→沖縄県）に並んでおり、
-    // id もその順に振られているため、各都道府県の最小 id で並べると都道府県コード順になる
-    $statement = $pdo->prepare('SELECT prefecture FROM post_codes GROUP BY prefecture ORDER BY MIN(id)');
+    // 都道府県マスタ（47件）から取得する。sort_order の順に並べると全国地方公共団体コード順（北海道→沖縄県）になる
+    // ※ 以前は post_codes（約12万件）を毎回 GROUP BY して集計していた（db/refresh_masters.sql を参照）
+    $statement = $pdo->prepare('SELECT name FROM prefectures ORDER BY sort_order');
     $statement->execute();
 
     return $statement;
@@ -32,15 +31,18 @@ function get_prefecture(PDO $pdo): PDOStatement
 
 
 /**
- * 市区町村を郵便番号データベースから取得する関数
+ * 指定した都道府県の市区町村の一覧を取得する関数（市区町村マスタから）
  * @param PDO $pdo データベースに接続した PHP Data Object
  * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
  */
 function get_municipality(PDO $pdo, string $selected_prefecture): PDOStatement
 {
-    // 郵便番号データベースから市区町村の一覧データを取得
-    // 都道府県と同様に、最小 id で並べて全国地方公共団体コード順にする
-    $statement = $pdo->prepare('SELECT municipality FROM post_codes WHERE prefecture = :prefecture GROUP BY municipality ORDER BY MIN(id)');
+    // 市区町村マスタから、指定した都道府県の市区町村を全国地方公共団体コード順に取得する
+    $statement = $pdo->prepare(
+        'SELECT m.name FROM municipalities m'
+        . ' INNER JOIN prefectures p ON p.id = m.prefecture_id'
+        . ' WHERE p.name = :prefecture ORDER BY m.sort_order'
+    );
     $statement->bindValue(':prefecture', $selected_prefecture, PDO::PARAM_STR);
     $statement->execute();
 
