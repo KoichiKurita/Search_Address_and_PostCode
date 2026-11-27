@@ -12,6 +12,22 @@ import {normalizePostCode, isValidPostCode} from "./postcode.js";   // 郵便番
 const API_ADDRESS = 'api/address';
 
 /**
+ * 候補がこの件数を超えたら、絞り込みの入力欄を出す
+ */
+const FILTER_THRESHOLD = 10;
+
+/**
+ * 絞り込みで比べるために、文字の違いをそろえる
+ * ひらがなをカタカナに、全角英数字を半角に、英字を小文字にする（「いちばん」でも「イチバン」でも一致させる）
+ * @param {string} text
+ * @return {string}
+ */
+const toSearchable = (text) => text
+    .normalize('NFKC')                                                                       // 全角英数字 → 半角
+    .replace(/[\u3041-\u3096]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))         // ひらがな → カタカナ
+    .toLowerCase();
+
+/**
  * 郵便番号から住所の候補を取得する
  * @param {string} zip 正規化済みの郵便番号
  * @param {AbortSignal} signal 取り消し用のシグナル（新しい入力があったら、前の通信を取り消す）
@@ -35,6 +51,9 @@ const setupAutofill = () => {
     const zipInput = document.getElementById('zip');
     const status = document.getElementById('autofill-status');
     const candidates = document.getElementById('autofill-candidates');
+    const filterLabel = document.getElementById('candidate-filter-label');
+    const filterInput = document.getElementById('candidate-filter');
+    const candidateCount = document.getElementById('candidate-count');
     const fields = {
         prefecture: document.getElementById('prefecture'),
         municipality: document.getElementById('municipality'),
@@ -46,21 +65,35 @@ const setupAutofill = () => {
     // 郵便番号検索の画面（municipality.js）では番号で古い結果を捨てているが、ここでは AbortController で通信そのものを止める
     let controller = null;
     let lastZip = '';
+    let allCandidates = [];     // 今の郵便番号の、すべての候補
+
+    /** 候補の一覧と、絞り込みの入力欄を消す */
+    const clearCandidates = () => {
+        allCandidates = [];
+        candidates.replaceChildren();
+        candidates.hidden = true;
+        filterLabel.hidden = true;
+        filterInput.value = '';
+        candidateCount.hidden = true;
+        candidateCount.textContent = '';
+    };
 
     /** 住所の欄を埋めて、続きの「番地・建物名」に入力できるようにする */
     const fill = (address) => {
         for (const [name, input] of Object.entries(fields)) {
             input.value = address[name];
         }
-        candidates.replaceChildren();
-        candidates.hidden = true;
+        clearCandidates();
         status.textContent = `${address.full_address} を入力しました。続けて番地を入力してください。`;
         streetInput.focus();
     };
 
-    /** 候補が複数あるときは、選べるようにボタンを並べる */
-    const showCandidates = (addresses) => {
-        const items = addresses.map((address) => {
+    /** 候補のうち、絞り込みの文字を含むものだけをボタンで並べる */
+    const renderCandidates = () => {
+        const keyword = toSearchable(filterInput.value.trim());
+        const matched = allCandidates.filter((address) => toSearchable(address.full_address).includes(keyword));
+
+        const items = matched.map((address) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.textContent = address.full_address;     // textContent なので、HTML として解釈されない
@@ -70,8 +103,26 @@ const setupAutofill = () => {
             return item;
         });
         candidates.replaceChildren(...items);
-        candidates.hidden = false;
-        status.textContent = `${addresses.length} 件の候補があります。選んでください。`;
+        candidates.hidden = matched.length === 0;
+
+        // 絞り込みの入力欄を出しているときは、何件に絞り込めたかを表示する（aria-live で読み上げソフトにも伝わる）
+        if (!filterLabel.hidden) {
+            candidateCount.hidden = false;
+            candidateCount.textContent = matched.length === 0
+                ? `${allCandidates.length} 件中、一致する候補はありません。`
+                : `${allCandidates.length} 件中 ${matched.length} 件を表示しています。`;
+        }
+    };
+
+    /** 候補が複数あるときは、選べるようにボタンを並べる（多いときは、絞り込みの入力欄も出す） */
+    const showCandidates = (addresses) => {
+        allCandidates = addresses;
+        filterInput.value = '';
+        filterLabel.hidden = addresses.length <= FILTER_THRESHOLD;
+        renderCandidates();
+        status.textContent = filterLabel.hidden
+            ? `${addresses.length} 件の候補があります。選んでください。`
+            : `${addresses.length} 件の候補があります。町域の名前で絞り込んでから選べます。`;
     };
 
     const lookUp = async () => {
@@ -82,8 +133,7 @@ const setupAutofill = () => {
         lastZip = zip;
 
         controller?.abort();
-        candidates.replaceChildren();
-        candidates.hidden = true;
+        clearCandidates();
 
         if (!isValidPostCode(zip)) {
             status.textContent = '';
@@ -118,6 +168,20 @@ const setupAutofill = () => {
         }
     });
     zipInput.addEventListener('compositionend', lookUp);
+
+    // 絞り込みの文字を入力するたびに、候補を絞り込む（日本語入力の変換中も、そのつど絞り込む）
+    filterInput.addEventListener('input', renderCandidates);
+
+    // 絞り込んだ結果が1件だけなら、Enter キーでそのまま選べるようにする
+    filterInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.isComposing) {
+            event.preventDefault();
+            const buttons = candidates.querySelectorAll('button');
+            if (buttons.length === 1) {
+                buttons[0].click();
+            }
+        }
+    });
 
     // デモなので、Enter キーなどで送信されないようにする
     form.addEventListener('submit', (event) => event.preventDefault());

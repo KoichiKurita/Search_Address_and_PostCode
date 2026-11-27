@@ -53,7 +53,8 @@
     { "title": "Phase 1: 不具合修正・ドキュメント", "description": "既存の不具合修正と README 整備（v0.3.0）" },
     { "title": "Phase 2: セキュリティ強化",         "description": "入力検証、セキュリティヘッダ、設定ファイルの保護など（v0.4.0）" },
     { "title": "Phase 3: 品質・非機能要件",         "description": "Composer、テスト、静的解析、性能改善（v0.5.0）" },
-    { "title": "Phase 4: 設計刷新・機能追加",       "description": "レイヤー分離、JSON API、データ自動更新（v1.0.0）" }
+    { "title": "Phase 4: 設計刷新・機能追加",       "description": "レイヤー分離、JSON API、データ自動更新（v1.0.0）" },
+    { "title": "Phase 5: 検索の拡張",               "description": "フリガナでの検索、事業所の個別郵便番号、自動入力デモの改善（v1.1.0）" }
   ],
 
   "issues": [
@@ -273,15 +274,21 @@
     },
     {
       "title": "事業所の個別郵便番号を検索できるようにする",
-      "milestone": null,
+      "milestone": "Phase 5: 検索の拡張",
       "labels": ["type: feature", "area: db", "priority: low"],
       "body": "## 概要\n日本郵便の事業所個別郵便番号データ（jigyosyo）も検索対象にする。"
     },
     {
       "title": "フリガナで住所を検索できるようにする",
-      "milestone": null,
+      "milestone": "Phase 5: 検索の拡張",
       "labels": ["type: feature", "area: db", "priority: low"],
       "body": "## 概要\nKEN_ALL のカナ列を取り込み、フリガナでも検索できるようにする。"
+    },
+    {
+      "title": "自動入力デモで、候補が多いときに絞り込めるようにする",
+      "milestone": "Phase 5: 検索の拡張",
+      "labels": ["type: feature", "area: js", "priority: low"],
+      "body": "## 概要\n`/autofill` で、1つの郵便番号に多くの町域がある場合（例: 452-0961 は66件）、候補のボタンが長く並んで選びにくい。\n\n## 完了条件\n- [ ] 候補が多いときだけ、町域の名前で絞り込める入力欄を出す\n- [ ] 絞り込んだ件数を表示し、読み上げソフトにも伝える\n- [ ] キーボードだけで、絞り込みから選択まで操作できる"
     }
   ]
 }
