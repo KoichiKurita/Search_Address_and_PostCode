@@ -94,3 +94,60 @@ table {
 .pagination .ellipsis {
     border: none;
 }
+
+/* 画面上部のナビゲーション（すべての画面に共通） */
+.site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+.site-nav [aria-current="page"] {
+    font-weight: bold;
+    color: inherit;
+    text-decoration: none;
+}
+
+/* 住所の自動入力デモ（#34） */
+.autofill-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 32em;
+}
+
+/* 項目名の下に入力欄を置く（共通の label の高さ指定を打ち消す） */
+.autofill-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: auto;
+}
+
+.autofill-form input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.candidates {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.candidates button {
+    width: 100%;
+    margin-bottom: 4px;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+/* プログラムの例 */
+.code {
+    overflow-x: auto;
+    padding: 12px;
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+}

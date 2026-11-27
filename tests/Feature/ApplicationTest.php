@@ -259,6 +259,33 @@ final class ApplicationTest extends TestCase
         $this->assertSame(200, $response->status);
     }
 
+    // ---- 住所の自動入力デモ（/autofill）#34 ----------------------------------
+
+    public function testAutofillDemo(): void
+    {
+        // 画面を表示するだけなので、DB には接続しない
+        $application = new Application(
+            static fn (): never => throw new PDOException('接続してはいけない'),
+            new View(dirname(__DIR__, 2) . '/templates'),
+        );
+        $response = $application->handle(new Request('GET', 'autofill', [], '', '/postcode'));
+
+        $this->assertSame(200, $response->status);
+        $this->assertStringContainsString('<title>住所の自動入力デモ</title>', $response->body);
+        $this->assertStringContainsString('autocomplete="postal-code"', $response->body);
+        $this->assertStringContainsString('<script src="js/autofill_page.js" type="module"></script>', $response->body);
+    }
+
+    public function testNavigationMarksCurrentPage(): void
+    {
+        // ナビゲーションでは、今いる画面だけに aria-current="page" を付ける
+        $response = $this->request('GET', 'postcode');
+
+        $this->assertStringContainsString('<a href="postcode" aria-current="page">郵便番号検索</a>', $response->body);
+        $this->assertStringContainsString('<a href="address">住所検索</a>', $response->body);
+        $this->assertSame(1, substr_count($response->body, 'aria-current="page">'));
+    }
+
     // ---- エラーとリダイレクト ------------------------------------------------
 
     public function testUnknownPathReturns404(): void

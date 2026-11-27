@@ -50,6 +50,15 @@ final class Application
         $router->post('api/municipalities', (new MunicipalityApiController($repository))(...));
         $router->get('api/address', (new AddressApiController($repository))(...));     // 郵便番号 → 住所の JSON API（#33）
 
+        // 住所の自動入力デモ（#34）。DB は使わず、画面の JavaScript が上の JSON API を呼び出す
+        $router->get('autofill', fn (Request $request): Response => $this->view->page(
+            $request,
+            'autofill',
+            '住所の自動入力デモ',
+            [],
+            'js/autofill_page.js',
+        ));
+
         // トップページは住所検索へ（302: 一時的な移動。トップページを作ったら変えられるように）
         $router->redirect('', 'address', 302);
 
