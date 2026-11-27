@@ -89,6 +89,20 @@ jobs:
       RELEASE: ${{ github.sha }}       # コミットID をリリース名にする
     steps:
       - uses: actions/checkout@v5
+      
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      # 本番用のオートローダーを作る（開発用パッケージ（PHPUnit など）は入れない）
+      # --classmap-authoritative: クラスとファイルの対応表を作っておき、実行時にファイルを探しに行かない（速い）
+      - name: 本番用のオートローダーを作る
+        run: |
+          composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative
+          # vendor/ の中を URL から直接開けないようにする
+          echo 'Require all denied' > vendor/.htaccess
 
       - name: SSH の準備
         # secrets はスクリプトに直接埋め込まず、環境変数経由で渡す（インジェクション対策）

@@ -12,6 +12,8 @@ declare(strict_types=1);
  * functions.php とテスト（tests/bootstrap.php）の両方から読み込む
  */
 
+use App\Domain\PostalCode;
+
 /**
  * 町名の入力の最大文字数（これより長い入力は不正な値として扱う）
  */
@@ -21,21 +23,6 @@ const TOWN_AREA_MAX_LENGTH = 50;
  * 郵便番号検索の結果を、1ページに何件ずつ表示するか
  */
 const POST_CODE_PAGE_SIZE = 50;
-
-/**
- * 郵便番号の入力で「ハイフン」として扱う文字の正規表現
- * 環境によって変わらない値なので、config.php ではなくコードに置く
- *
- * U+30FC（ー 長音記号）、U+2010〜U+2015（各種ダッシュ）、U+2212（− マイナス）、U+FF0D（－ 全角ハイフン）など
- * U+4E00（一 漢数字のいち）は意図的に含めている。
- *   日本語入力で「-」のつもりで「一」に変換されてしまうことがあり、
- *   郵便番号は数字だけなので「一」を「-」に置き換えても困ることがないため。
- *
- * 参考:
- * https://qiita.com/ryounagaoka/items/4cf5191d1a2763667add
- * https://hydrocul.github.io/wiki/blog/2014/1101-hyphen-minus-wave-tilde.html
- */
-const POST_CODE_HYPHEN_PATTERN = '/[\x{30FC}\x{2010}-\x{2015}\x{2212}\x{FF70}\x{2053}\x{2E3A}\x{301C}\x{3030}\x{2500}\x{4E00}\x{FE63}\x{FF0D}\x{2043}\x{FE58}\x{23AF}\x{208B}\x{007E}]/u';
 
 /**
  * クエリパラメータ（$_GET など）から、文字列の値を取り出す
@@ -52,32 +39,25 @@ function query_string(array $query, string $name): string
 }
 
 /**
- * 入力された郵便番号を正規化する
- * 全角数字・全角スペースを半角にし、前後の空白を取り除き、各種ハイフンを半角「-」にそろえる
+ * 入力された郵便番号を正規化する（App\Domain\PostalCode::normalize() と同じ）
  * 例: 「３３０ー００６３」→「330-0063」
  * @param string $value 入力された郵便番号
  * @return string 正規化した郵便番号
  */
 function normalize_post_code(string $value): string
 {
-    // mb_convert_kana の n は「全角数字→半角」、s は「全角スペース→半角」
-    $value = trim(mb_convert_kana($value, 'ns', 'UTF-8'));
-
-    // preg_replace は一致した箇所をすべて置換する。正規表現の実行に失敗したときは null が返るので空文字にする
-    return preg_replace(POST_CODE_HYPHEN_PATTERN, '-', $value) ?? '';
+    return PostalCode::normalize($value);
 }
 
 
 /**
- * 郵便番号の書式が正しいかを判定する（数字3桁 + ハイフン（省略可）+ 数字4桁）
- * JS 側でも同じチェックをしているが、URL を直接書き換えれば JS のチェックは通らずに送れるため、
- * サーバー側でも必ず検証する
+ * 郵便番号の書式が正しいかを判定する（App\Domain\PostalCode::isValidFormat() と同じ）
  * @param string $post_code 正規化済みの郵便番号
  * @return bool 正しい書式なら true
  */
 function is_valid_post_code(string $post_code): bool
 {
-    return preg_match('/^[0-9]{3}-?[0-9]{4}$/', $post_code) === 1;
+    return PostalCode::isValidFormat($post_code);
 }
 
 

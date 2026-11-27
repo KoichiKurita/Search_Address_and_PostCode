@@ -24,6 +24,7 @@ help: ## このヘルプを表示
 init: ## 初回セットアップ（.env 作成 → ビルド → 起動）
 	@test -f .env || (cp .env.example .env && echo ".env を作成しました")
 	$(COMPOSE) build
+	$(MAKE) composer-install
 	$(MAKE) up
 
 up: ## 開発環境を起動

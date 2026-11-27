@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
+use App\Domain\PostalCode;
 use PDO;
 use PHPUnit\Framework\TestCase;
 
@@ -105,7 +106,7 @@ final class QueriesTest extends TestCase
     public function testSearchAddressWithAndWithoutHyphen(): void
     {
         foreach (['330-0063', '3300063'] as $postCode) {
-            $rows = search_address($this->pdo, $postCode)->fetchAll(PDO::FETCH_ASSOC);
+            $rows = search_address($this->pdo, PostalCode::fromString($postCode))->fetchAll(PDO::FETCH_ASSOC);
             $this->assertCount(1, $rows, $postCode);
             $this->assertSame('高砂', $rows[0]['town_area']);
         }
@@ -113,7 +114,7 @@ final class QueriesTest extends TestCase
 
     public function testSearchAddressNotFound(): void
     {
-        $this->assertSame([], search_address($this->pdo, '999-9999')->fetchAll());
+        $this->assertSame([], search_address($this->pdo, PostalCode::fromString('999-9999'))->fetchAll());
     }
 
     public function testSearchPostCodeWithoutTownArea(): void
