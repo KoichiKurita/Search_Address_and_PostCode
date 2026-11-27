@@ -25,10 +25,11 @@ require_once __DIR__ . '/src/helpers.php';
 
 /**
  * DB に接続する
- * @return PDO 読み取り専用のセッションにした接続
+ * @param bool $readOnly 読み取り専用のセッションにするか（画面と API は true。書き込むのは郵便番号データの取り込みだけ）
+ * @return PDO DB への接続
  * @throws PDOException DB に接続できない場合
  */
-function connect(): PDO
+function connect(bool $readOnly = true): PDO
 {
     $pdo = new PDO(DB_NAME, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -37,7 +38,9 @@ function connect(): PDO
     // この接続を読み取り専用にする（このアプリは検索だけで、DB に書き込まない）
     //   本番のレンタルサーバでは SELECT だけの DB ユーザーを作れないため、その代わりの安全策として、
     //   バグなどで書き込み系の SQL が実行されても、DB 側で拒否されるようにする
-    $pdo->exec('SET SESSION TRANSACTION READ ONLY');
+    if ($readOnly) {
+        $pdo->exec('SET SESSION TRANSACTION READ ONLY');
+    }
 
     return $pdo;
 }

@@ -9,6 +9,7 @@ parameters:
         - templates
         - bootstrap.php
         - public/index.php
+        - bin
     # config.php は Git 管理外なので、定数（DB_NAME など）の定義には Docker 用の設定ファイルを使う
     bootstrapFiles:
         - docker/app/config.php

@@ -7,6 +7,11 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 
+# .env の値（DB のユーザー名など）を、make の変数としても使えるようにする（無ければ下の初期値）
+-include .env
+DB_LOADER_USERNAME ?= loader
+DB_LOADER_PASSWORD ?= loader_password
+
 # app コンテナで一時的にコマンドを実行する（自分のユーザー ID で動かし、作られるファイルを root の持ち物にしない）
 RUN_APP := $(COMPOSE) run --rm --no-deps --user "$$(id -u):$$(id -g)" -e COMPOSER_HOME=/tmp/composer app
 
@@ -16,7 +21,7 @@ WORK_DIR := db/work
 KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
 KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
 
-.PHONY: help init build up down restart logs ps sh db tools seed-full db-reset lint composer-install composer test stan fmt fmt-check gh-setup gh-setup-dry
+.PHONY: help init build up down restart logs ps sh db tools seed-full import db-reset lint composer-install composer test stan fmt fmt-check gh-setup gh-setup-dry
 
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -54,15 +59,19 @@ db: ## MySQL クライアントで DB に接続
 tools: ## phpMyAdmin も起動（http://localhost:8081）
 	$(COMPOSE) --profile tools up -d
 
-seed-full: ## 日本郵便の全国データ（約12万件）をダウンロードして投入
+seed-full: ## 日本郵便の全国データ（約12万件）をダウンロードして投入（本番の月次更新と同じ手順）
 	mkdir -p $(WORK_DIR)
 	curl -fsSL -o $(WORK_DIR)/utf_ken_all.zip "$(KEN_ALL_URL)" \
 	  || curl -fsSL -o $(WORK_DIR)/utf_ken_all.zip "$(KEN_ALL_URL_ALT)"
 	unzip -o -q $(WORK_DIR)/utf_ken_all.zip -d $(WORK_DIR)
-	python3 db/ken_all_to_sql.py $(WORK_DIR)/utf_ken_all.csv $(WORK_DIR)/out
-	cat $(WORK_DIR)/out/*.sql | $(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE"'
-	$(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE"' < db/refresh_masters.sql
-	$(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM post_codes) AS post_codes, (SELECT COUNT(*) FROM prefectures) AS prefectures, (SELECT COUNT(*) FROM municipalities) AS municipalities;"'
+	python3 db/ken_all_to_sql.py $(WORK_DIR)/utf_ken_all.csv $(WORK_DIR)/post_codes.csv --format csv
+	$(MAKE) import CSV=$(WORK_DIR)/post_codes.csv
+
+import: ## CSV を DB に取り込む（例: make import CSV=db/work/post_codes.csv）
+	@test -n "$(CSV)" || (echo "CSV=… で取り込む CSV を指定してください" && exit 1)
+	@# アプリは SELECT だけのユーザーで動くので、取り込みのときだけ、書き込みのできるユーザーで接続する
+	$(COMPOSE) run --rm -e DB_USERNAME="$(DB_LOADER_USERNAME)" -e DB_PASSWORD="$(DB_LOADER_PASSWORD)" app \
+	  php bin/import-postcodes.php $(CSV)
 
 db-reset: ## DB を削除して作り直す（サンプルデータに戻る）
 	$(COMPOSE) down -v

@@ -187,3 +187,42 @@ ls -l ~/www/postcode                                   # → .../current/public 
 ## 6. 鍵の作り直し（年1回程度を推奨）
 
 2 の手順で新しい鍵を作って登録し、サーバーの `~/.ssh/authorized_keys` から古い鍵の行を削除します。
+
+## 7. 郵便番号データの月次更新
+
+`.github/workflows/update-postcodes.yml` が、毎月3日の 3:17（日本時間）に、日本郵便の最新データを本番の DB に取り込みます。
+しくみは [README の「郵便番号データの月次自動更新」](README.md#7-郵便番号データの月次自動更新) を参照してください。
+取り込みに失敗した場合、DB は元のまま残り、GitHub からメールで通知が届きます。
+
+### 準備（初回のみ）
+
+Actions は SSH でコマンドを1つだけ実行します（ログインはしない）。そのときに使われる PHP が、Web と同じ 8.3 かを確認します。
+
+```bash
+# 自分の PC（ログインせずにコマンドだけを実行して、Actions と同じ状況で確かめる）
+ssh <アカウント名>@<アカウント名>.sakura.ne.jp 'which php; php -v | head -1; php -m | grep -i pdo_mysql'
+```
+
+- `PHP 8.3.x` と `pdo_mysql` が表示されれば、設定は不要です（Variable `PHP_CLI` の初期値は `php`）
+- 違う版の場合は、8.3 のコマンドを探して（例: `ls /usr/local/bin | grep php`）、フルパスを登録します
+  ```bash
+  gh variable set PHP_CLI --env production --body <8.3 の php のフルパス>
+  ```
+
+### 手動で実行する
+
+```bash
+gh workflow run update-postcodes.yml --ref main
+gh run watch "$(gh run list --workflow update-postcodes.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+ログの「DB に取り込む」に、取り込んだ件数と、追加・廃止された郵便番号が出ます。
+
+### 取り込みが中止されたとき
+
+| メッセージ | 原因と対応 |
+|---|---|
+| `件数が今より X% 減ります` | ダウンロードしたデータが不完全か、日本郵便のデータに大きな変更があった。日本郵便のページを確認し、問題なければ一時的に `PostCodeImporter` の割合を下げて手動実行する |
+| `N 行目: …` | データの形が想定と違う（列の追加・文字数の超過など）。`db/ken_all_to_sql.py` と `db/schema.sql` を見直す |
+| `ファイルがありません` | CSV の送信に失敗している。「CSV をサーバーに送る」のログを確認する |
+

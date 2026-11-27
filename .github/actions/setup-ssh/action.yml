@@ -1,0 +1,49 @@
+# サーバー（さくらのレンタルサーバ）に SSH で接続する準備をする（デプロイと、郵便番号データの更新で共通）
+#   使ったあとは、必ず「rm -f ~/.ssh/deploy_key」で秘密鍵を消すこと（if: always() のステップで）
+#   接続先は「deploy-target」という名前で使える（例: ssh deploy-target 'ls'）
+name: SSH の準備
+description: デプロイ用の SSH 鍵と接続先を設定する
+inputs:
+  private-key:
+    description: SSH の秘密鍵（secrets.SSH_PRIVATE_KEY）
+    required: true
+  known-hosts:
+    description: サーバーのホスト鍵（secrets.SSH_KNOWN_HOSTS）
+    required: true
+  host:
+    description: 接続先のホスト名（secrets.DEPLOY_HOST）
+    required: true
+  user:
+    description: ユーザー名（secrets.DEPLOY_USER）
+    required: true
+  port:
+    description: ポート番号
+    required: false
+    default: '22'
+runs:
+  using: composite
+  steps:
+    - name: SSH の鍵と接続先を設定する
+      shell: bash
+      # 値はスクリプトに直接埋め込まず、環境変数経由で渡す（インジェクション対策）
+      env:
+        SSH_PRIVATE_KEY: ${{ inputs.private-key }}
+        SSH_KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        DEPLOY_HOST: ${{ inputs.host }}
+        DEPLOY_USER: ${{ inputs.user }}
+        DEPLOY_PORT: ${{ inputs.port }}
+      run: |
+        install -m 700 -d ~/.ssh
+        printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        {
+          echo "Host deploy-target"
+          echo "  HostName $DEPLOY_HOST"
+          echo "  User $DEPLOY_USER"
+          echo "  Port $DEPLOY_PORT"
+          echo "  IdentityFile ~/.ssh/deploy_key"
+          echo "  IdentitiesOnly yes"
+          echo "  StrictHostKeyChecking yes"   # 登録済みのホスト鍵以外には接続しない（なりすまし対策）
+        } > ~/.ssh/config
+        chmod 600 ~/.ssh/config
