@@ -16,6 +16,9 @@ declare(strict_types=1);
  *   ステータスコードやヘッダーを送れなくなる原因になるため。
  */
 
+use App\Domain\PostCodeRepository;
+use App\Infrastructure\PdoPostCodeRepository;
+
 // DBの認証情報の読み込み
 require_once dirname(__FILE__) . '/config.php';
 
@@ -23,10 +26,8 @@ require_once dirname(__FILE__) . '/config.php';
 // 本番には、デプロイのときに CI が作った本番用のオートローダー（開発用パッケージを含まない）を送っている
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
-// DB や画面に依存しない関数（src/helpers.php）と、DB を検索する関数（src/queries.php）の読み込み
-// テストしやすいように、ファイルを分けている
+// DB や画面に依存しない関数の読み込み
 require_once dirname(__FILE__) . '/src/helpers.php';
-require_once dirname(__FILE__) . '/src/queries.php';
 
 
 /**
@@ -46,6 +47,18 @@ function connect(): pdo
     $pdo->exec('SET SESSION TRANSACTION READ ONLY');
 
     return $pdo;
+}
+
+
+/**
+ * 郵便番号データを検索する Repository を作る（DB に接続する）
+ * 画面は PostCodeRepository（インターフェース）だけを使い、SQL や PDO を直接は扱わない
+ * @return PostCodeRepository
+ * @throws PDOException DB に接続できない場合
+ */
+function post_code_repository(): PostCodeRepository
+{
+    return new PdoPostCodeRepository(connect());
 }
 
 

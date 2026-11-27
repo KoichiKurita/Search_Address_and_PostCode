@@ -22,7 +22,7 @@ $input = PostalCode::normalize(query_string($_GET, 'post-code'));
 // PostalCode に変換する。正しい郵便番号でなければ null になる（このあと検索できるのは PostalCode だけ）
 $postal_code = PostalCode::tryFromString($input);
 
-$rows = [];             // 検索結果
+$addresses = [];        // 検索結果（App\Domain\Address の配列）
 $error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）
 
 if ($postal_code === null) {
@@ -32,12 +32,8 @@ if ($postal_code === null) {
     $error_message = '郵便番号は7桁の数字で入力してください（例：330-0063）';
 } else {
     try {
-        $pdo = connect();   // DB接続
-
-        // 郵便番号から住所を検索する
-        // fetchAll で配列として受け取り、件数は count() で数える
-        // （SELECT 文に対する rowCount() は、DB の種類によっては正しい件数を返さないため）
-        $rows = search_address($pdo, $postal_code)->fetchAll(PDO::FETCH_ASSOC);
+        // 郵便番号から住所を検索する（結果は型の決まった Address の配列）
+        $addresses = post_code_repository()->findByPostalCode($postal_code);
     } catch (PDOException $e) {
         error_log(basename(__FILE__) . ': ' . $e->getMessage());   // 詳細はサーバーログにのみ記録する
         render_error_page(500, '住所の検索に失敗しました。時間をおいて再度お試しください。');
@@ -80,16 +76,16 @@ if ($postal_code === null) {
             <!-- フォームに入力された郵便番号とデータベースで検索した結果を表形式で表示する -->
             <!-- 見出しは、入力の形（ハイフンの有無）に関係なく「330-0063」の形にそろえる -->
             <!-- エラーがないときは $postal_code が必ず作られているので、null の考慮はいらない（PHPStan も確認している） -->
-            <h1 id="result_heading">郵便番号「<?=escape($postal_code->withHyphen())?>」の住所の検索結果：<?=count($rows)?>件</h1>            <table class="result-table">
+            <h1 id="result_heading">郵便番号「<?=escape($postal_code->withHyphen())?>」の住所の検索結果：<?=count($addresses)?>件</h1>            <table class="result-table">
                 <tr>
                     <th>郵便番号</th>
                     <th>住所</th>
                 </tr>
 
-                <?php foreach ($rows as $row): ?>
+                <?php foreach ($addresses as $address): ?>
                 <tr>
-                    <td><?=escape($row['post_code'])?></td>
-                    <td><?=escape($row['prefecture'] . $row['municipality'] . $row['town_area'])?></td>
+                    <td><?=escape($address->postalCode->withHyphen())?></td>
+                    <td><?=escape($address->fullAddress())?></td>
                 </tr>
                 <?php endforeach; ?>
             </table>

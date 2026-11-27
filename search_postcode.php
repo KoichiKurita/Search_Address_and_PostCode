@@ -16,8 +16,7 @@ require_once dirname(__FILE__) . '/functions.php';   // 外部関数読み込み
 
 // DBに接続し、都道府県の一覧を取得する
 try {
-    $pdo = connect();   // DB接続
-    $prefectures = get_prefecture($pdo)->fetchAll(PDO::FETCH_COLUMN);
+    $prefectures = post_code_repository()->prefectures();
 } catch (PDOException $e) {
     error_log(basename(__FILE__) . ': ' . $e->getMessage());   // 詳細はサーバーログにのみ記録する
     render_error_page(500, '都道府県データの取得に失敗しました。時間をおいて再度お試しください。');

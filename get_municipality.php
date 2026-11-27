@@ -36,11 +36,8 @@ if (!is_string($selected_prefecture) || $selected_prefecture === '') {
 
 // DBに接続し、市区町村一覧データを取得する
 try {
-    $pdo = connect();
-
-    // FETCH_COLUMN で、1列目（municipality）だけの配列として受け取る
     // JSON にはエスケープせずに入れる（HTML エスケープは、表示する側でだけ行う）
-    $municipalities = get_municipality($pdo, $selected_prefecture)->fetchAll(PDO::FETCH_COLUMN);
+    $municipalities = post_code_repository()->municipalities($selected_prefecture);
 
 } catch (PDOException $e) {
     // DB の接続・検索でエラーが発生した場合は 500 を返す（詳細はサーバーログにのみ記録する）
