@@ -63,7 +63,13 @@ Options -Indexes
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 
     # 一度 HTTPS で接続したら、以後は HTTPS だけを使わせる（HSTS）
-    #   まずは短い期間（1日）で動作を確認し、問題がなければ 31536000（1年）に延ばす
+    #   1日（86400）で動作を確認したうえで、1年（31536000）に延ばした
     #   初期ドメイン（*.sakura.ne.jp）を使っているため、includeSubDomains と preload は付けない
-    Header always set Strict-Transport-Security "max-age=86400"
+    Header always set Strict-Transport-Security "max-age=31536000"
+
+    # 別のサイトから window.open などで開かれたときに、そのサイトとウィンドウを共有しない
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+
+    # このサイトのファイル（JS・CSS など）を、ほかのサイトから読み込ませない
+    Header always set Cross-Origin-Resource-Policy "same-origin"
 </IfModule>
