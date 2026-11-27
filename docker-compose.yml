@@ -1,5 +1,5 @@
 # 郵便番号・住所検索 ローカル開発環境
-#   起動: make up   → http://localhost:8080/search_address.html
+#   起動: make up   → http://localhost:8080/address
 #   本番（さくらのレンタルサーバー）と同じ PHP 8.3 / MySQL 8.0 にそろえている
 services:
   app:
@@ -11,7 +11,6 @@ services:
       - ./:/var/www/html
       # Git 管理外の設定ファイルは、Docker 用のものを上から重ねる（読み取り専用）
       - ./docker/app/config.php:/var/www/html/config.php:ro
-      - ./docker/app/config.js:/var/www/html/js/config.js:ro
     environment:
       DB_HOST: db
       DB_DATABASE: ${DB_DATABASE:-postcode}

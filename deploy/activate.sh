@@ -5,8 +5,8 @@
 #
 # ディレクトリ構成:
 #   <APP_DIR>/releases/<コミットID>/  … デプロイされたファイル一式
-#   <APP_DIR>/shared/                 … config.php / config.js（Git 管理外の設定）
-#   <APP_DIR>/current -> releases/xxx … ~/www/<公開名> からこのリンクを参照する
+#   <APP_DIR>/shared/                 … config.php（Git 管理外の設定）
+#   <APP_DIR>/current -> releases/xxx … ~/www/<公開名> からcurrent/public を参照する
 #   APP_DIR は公開ディレクトリ（~/www）の外に置くので、設定ファイルは Web から直接見えない
 set -eu
 
@@ -17,12 +17,10 @@ KEEP=5                                   # 残しておくリリース数
 REL_DIR="$APP_DIR/releases/$RELEASE"
 [ -d "$REL_DIR" ] || { echo "リリースが見つかりません: $REL_DIR" >&2; exit 1; }
 
-# 1. Git 管理外の設定ファイルを shared からリンクする
-for f in config.php js/config.js; do
-    src="$APP_DIR/shared/$(basename "$f")"
-    [ -f "$src" ] || { echo "設定ファイルがありません: $src" >&2; exit 1; }
-    ln -sfn "$src" "$REL_DIR/$f"
-done
+# 1. Git 管理外の設定ファイルを shared からリンクする（リリースのルート＝public/ の外に置く）
+src="$APP_DIR/shared/config.php"
+[ -f "$src" ] || { echo "設定ファイルがありません: $src" >&2; exit 1; }
+ln -sfn "$src" "$REL_DIR/config.php"
 
 # 2. ロールバック用に、今のリリースを記録しておく
 if [ -L "$APP_DIR/current" ]; then

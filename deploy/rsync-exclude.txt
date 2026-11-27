@@ -21,7 +21,5 @@ phpstan.neon
 .phpunit.cache/
 *.md
 config_dummy.php
-js/config_dummy.js
 # 設定ファイルはサーバーの shared/ にあるものを使う
 config.php
-js/config.js

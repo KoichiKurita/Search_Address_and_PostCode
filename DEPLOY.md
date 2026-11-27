@@ -3,11 +3,11 @@
 `main` ブランチに push（Pull Request のマージを含む）すると、GitHub Actions が次の順に処理します。
 
 ```
-lint（php -l） → rsync でアップロード → シンボリックリンク切り替え → ヘルスチェック
-                                                                  └ 失敗したら直前のリリースへ自動ロールバック
+構文チェック・テスト・静的解析 → rsync でアップロード → シンボリックリンク切り替え → ヘルスチェック
+                                                                                      └ 失敗したら直前のリリースへ自動ロールバック
 ```
 
-Pull Request の段階では lint だけが動き、デプロイはされません。
+Pull Request の段階では構文チェック・テスト・静的解析だけが動き、デプロイはされません。
 リポジトリの Variable `DEPLOY_ENABLED` が `true` のときだけデプロイします。止めたいときは `gh variable set DEPLOY_ENABLED --body false` を実行します（停止スイッチ）。
 
 前提: さくらのレンタルサーバ **スタンダード以上**（SSH が使えるプラン）
@@ -21,13 +21,16 @@ Pull Request の段階では lint だけが動き、デプロイはされませ�
 │   │   ├── 5bf648f.../            ← コミットごとに丸ごと配置（最新5件を保持）
 │   │   └── a1b2c3d.../
 │   ├── shared/
-│   │   ├── config.php             ← DB接続情報（Git管理外・サーバーにだけ置く）
-│   │   └── config.js
+│   │   └── config.php             ← DB接続情報（Git管理外・サーバーにだけ置く）
 │   ├── previous_release           ← ロールバック先の記録
 │   └── current -> releases/a1b2c3d...
 └── www/
-    └── postcode -> ../apps/postcode/current   ← https://<ドメイン>/postcode/
+    └── postcode -> ../apps/postcode/current/public   ← https://<ドメイン>/postcode/
 ```
+
+- **公開するのは `public/` だけ**: `config.php`・`src/`・`vendor/` などはリリースのルート（`public/` の外）にあるので、URL から開けない。
+  ヘルスチェックでも、これらが 200 で見えてしまっていないかを毎回確認している
+- **保険**: もし `~/www/postcode` が `current`（リリースのルート）を指していても、ルートの `.htaccess` がすべての URL を `public/` に振り分けるので、`public/` の外は見えない
 
 - **アトミックな切り替え**: アップロード中の中途半端な状態が公開されることはなく、`current` の付け替えは一瞬で終わる
 - **すぐ戻せる**: 古いリリースが残っているので、リンクを戻すだけで元に戻る
@@ -39,7 +42,7 @@ Pull Request の段階では lint だけが動き、デプロイはされませ�
 |---|---|
 | OS が FreeBSD で、bash や GNU 独自のオプションがない | デプロイスクリプトは POSIX sh だけで書き、CI でも `dash -n` で確認している。リンクの差し替えは perl の `rename` で行う |
 | 専用のデプロイユーザーを作れない | デプロイ専用の SSH 鍵を使い、`restrict` でポート転送などを無効化する。鍵は定期的に作り直す |
-| PHP-FPM などをリロードできない | PHP のパスのキャッシュが切れるまで、切り替え後**最大2分ほど**は旧リリースが表示されることがある。旧リリースも残しているので、エラーにはならない |
+| PHP-FPM などをリロードできない | PHP のパスのキャッシュ（realpath キャッシュ）が切れるまで、切り替え後**最大2分ほど**は旧リリースが表示されることがある。旧リリースも残しているので、エラーにはならない |
 
 ---
 
@@ -64,12 +67,10 @@ Pull Request の段階では lint だけが動き、デプロイはされませ�
 mkdir -p ~/apps/postcode/releases ~/apps/postcode/shared
 
 # 今動いている設定ファイルを shared にコピーする（公開先が違う場合は読み替え）
-cp ~/www/postcode/config.php   ~/apps/postcode/shared/config.php
-cp ~/www/postcode/js/config.js ~/apps/postcode/shared/config.js
+cp ~/www/postcode/config.php ~/apps/postcode/shared/config.php
 
 # config.php は自分だけが読めるようにする（DB パスワードが入っているため）
 chmod 600 ~/apps/postcode/shared/config.php
-chmod 644 ~/apps/postcode/shared/config.js
 ```
 
 > `chmod 600` で画面にエラーが出る場合は、PHP が別のユーザーで動いています。`chmod 640` → `644` の順に試してください。
@@ -143,12 +144,12 @@ rm ~/deploy_key
    ls -l ~/apps/postcode/current
    ls ~/apps/postcode/current/
    ```
-3. 公開先を `current` へのリンクに切り替える（数秒だけ表示されない時間がある）
+3. 公開先を `current/public` へのリンクに切り替える（数秒だけ表示されない時間がある）
    ```sh
    mv ~/www/postcode ~/www/postcode.bak
-   ln -s ~/apps/postcode/current ~/www/postcode
+   ln -s ~/apps/postcode/current/public ~/www/postcode
    ```
-4. ブラウザで `https://<アカウント名>.sakura.ne.jp/postcode/search_address.html` を開いて、動作を確認する
+4. ブラウザで `https://<アカウント名>.sakura.ne.jp/postcode/address` を開いて、動作を確認する
    - **403 Forbidden になる場合**は、シンボリックリンクがたどれていません。すぐに `rm ~/www/postcode && mv ~/www/postcode.bak ~/www/postcode` で元に戻し、表示されたエラーを共有してください
 5. 問題がなければ、バックアップを消す
    ```sh
@@ -156,6 +157,21 @@ rm ~/deploy_key
    ```
 
 以降は、`main` にマージするだけで自動的にデプロイされます。
+
+### 公開ルートを `public/` に切り替える（#29。すでに運用中のサーバーで1回だけ）
+
+#29 より前は、`~/www/postcode` が `current`（リリースのルート）を指していました。
+#29 をデプロイしたあとも、ルートの `.htaccess`（保険）のおかげでそのまま動きますが、`public/` を直接指すように切り替えます。
+
+```sh
+ls -l ~/www/postcode                                   # → /home/<アカウント名>/apps/postcode/current になっている
+ln -sfn ~/apps/postcode/current/public ~/www/postcode.new
+perl -e 'rename $ARGV[0], $ARGV[1] or die $!' ~/www/postcode.new ~/www/postcode    # 一瞬で差し替える
+ls -l ~/www/postcode                                   # → .../current/public になった
+```
+
+> PHP はファイルのパスを最大2分ほど覚えている（realpath キャッシュ）ため、切り替え直後の**最大2分ほど、500 エラーになることがあります**。
+> 2〜3分待ってから確認してください。戻すときは、同じ手順で `~/apps/postcode/current` を指すようにします。
 
 ## 5. ロールバック
 

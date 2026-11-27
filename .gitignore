@@ -1,6 +1,5 @@
 /build/
 /config.php
-/js/config.js
 
 # ローカル開発環境
 .env
@@ -8,7 +7,7 @@
 # Composer でインストールしたパッケージと、PHPUnit のキャッシュ（composer.lock はコミットする）
 /vendor/
 /.phpunit.cache/
-
+/.phpunit.result.cache
 /.php-cs-fixer.cache
 
 /db/work/

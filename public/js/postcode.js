@@ -1,7 +1,7 @@
 /*
     郵便番号・住所検索(postcode.js)
     郵便番号の正規化・書式チェック
-    住所検索フォーム（search_address.html / result_address.php）で共通して使う
+    住所検索の画面（/address）で使う
  */
 
 /**
@@ -11,8 +11,7 @@
 const PATTERN_POST_CODE = /^[0-9]{3}-?[0-9]{4}$/u;
 
 /**
- * 「ハイフン」として扱う文字（PHP 側の functions.php の POST_CODE_HYPHEN_PATTERN と同じもの）
- * 環境によって変わらない値なので、config.js ではなくコードに置く
+ * 「ハイフン」として扱う文字（PHP 側の App\Domain\PostalCode::HYPHEN_PATTERN と同じもの）
  * g フラグを付けているので、replace() で一致した箇所をすべて置換する
  * U+4E00（一 漢数字のいち）は意図的に含めている（日本語入力で「-」のつもりで「一」に変換されることがあるため）
  */

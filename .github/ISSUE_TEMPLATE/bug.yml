@@ -15,7 +15,7 @@ body:
     attributes:
       label: 再現手順
       placeholder: |
-        1. search_address.html を開く
+        1. /address を開く
         2. 「330ー0063」と入力して検索
     validations:
       required: true

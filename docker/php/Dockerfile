@@ -16,4 +16,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # 開発用の php.ini
 COPY php.ini /usr/local/etc/php/conf.d/zz-dev.ini
 
+# 公開ルートを public/ にする（本番と同じく、src/ や config.php などは URL から見えない）
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+
 WORKDIR /var/www/html
