@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use App\Controller\AddressApiController;
 use App\Controller\AddressSearchController;
 use App\Controller\MunicipalityApiController;
 use App\Controller\PostCodeSearchController;
@@ -47,6 +48,7 @@ final class Application
         $router->get('address', (new AddressSearchController($repository, $this->view))(...));
         $router->get('postcode', (new PostCodeSearchController($repository, $this->view))(...));
         $router->post('api/municipalities', (new MunicipalityApiController($repository))(...));
+        $router->get('api/address', (new AddressApiController($repository))(...));     // 郵便番号 → 住所の JSON API（#33）
 
         // トップページは住所検索へ（302: 一時的な移動。トップページを作ったら変えられるように）
         $router->redirect('', 'address', 302);

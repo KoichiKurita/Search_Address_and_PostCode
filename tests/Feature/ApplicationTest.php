@@ -11,6 +11,7 @@ use App\Http\View;
 use App\Infrastructure\PdoPostCodeRepository;
 use PDO;
 use PDOException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\TestDatabase;
 
@@ -171,6 +172,91 @@ final class ApplicationTest extends TestCase
         $this->assertSame(405, $response->status);
         $this->assertSame('POST', $response->headers['Allow']);
         $this->assertSame('{"error_msg":"許可されていないメソッドです。"}', $response->body);
+    }
+
+    // ---- 住所の JSON API（/api/address）#33 ----------------------------------
+
+    public function testAddressApi(): void
+    {
+        // 全角数字・長音記号のハイフンも、画面と同じく正規化して検索する
+        $response = $this->request('GET', 'api/address', ['zip' => '３３０ー００６３']);
+
+        $this->assertSame(200, $response->status);
+        $this->assertSame('application/json; charset=utf-8', $response->headers['Content-Type']);
+        $this->assertSame([
+            'zip' => '330-0063',
+            'count' => 1,
+            'addresses' => [[
+                'zip' => '330-0063',
+                'prefecture' => '埼玉県',
+                'municipality' => 'さいたま市浦和区',
+                'town_area' => '高砂',
+                'full_address' => '埼玉県さいたま市浦和区高砂',
+            ]],
+        ], json_decode($response->body, true));
+    }
+
+    public function testAddressApiAllowsCorsAndCache(): void
+    {
+        // ほかのサイトの JavaScript からも使え、ブラウザに1日キャッシュさせる
+        $response = $this->request('GET', 'api/address', ['zip' => '3300063']);
+
+        $this->assertSame('*', $response->headers['Access-Control-Allow-Origin']);
+        $this->assertSame('public, max-age=86400', $response->headers['Cache-Control']);
+    }
+
+    public function testAddressApiNotFoundReturnsEmptyList(): void
+    {
+        // 正しい形の郵便番号で、見つからない場合は 200 で 0 件（エラーではない）
+        $response = $this->request('GET', 'api/address', ['zip' => '999-9999']);
+
+        $this->assertSame(200, $response->status);
+        $this->assertSame('{"zip":"999-9999","count":0,"addresses":[]}', $response->body);
+    }
+
+    /**
+     * @return array<string, array{array<string, string>}>
+     */
+    public static function invalidZipProvider(): array
+    {
+        return [
+            'zip が無い'     => [[]],
+            '空'             => [['zip' => '']],
+            '6桁'            => [['zip' => '330006']],
+            '数字以外'       => [['zip' => 'abcdefg']],
+        ];
+    }
+
+    /**
+     * @param array<string, string> $query
+     */
+    #[DataProvider('invalidZipProvider')]
+    public function testAddressApiWithInvalidZipReturns400(array $query): void
+    {
+        $response = $this->request('GET', 'api/address', $query);
+
+        $this->assertSame(400, $response->status);
+        $this->assertStringContainsString('"error_msg"', $response->body);
+        // エラーの内容も、ほかのサイトの JavaScript から読めるようにする。間違った応答はキャッシュさせない
+        $this->assertSame('*', $response->headers['Access-Control-Allow-Origin']);
+        $this->assertArrayNotHasKey('Cache-Control', $response->headers);
+    }
+
+    public function testAddressApiWithPostReturns405Json(): void
+    {
+        $response = $this->request('POST', 'api/address', ['zip' => '3300063']);
+
+        $this->assertSame(405, $response->status);
+        $this->assertSame('GET', $response->headers['Allow']);
+        $this->assertSame('application/json; charset=utf-8', $response->headers['Content-Type']);
+    }
+
+    public function testAddressApiAcceptsHead(): void
+    {
+        // HEAD は GET と同じ処理をする（本文は Web サーバーが送らない）
+        $response = $this->request('HEAD', 'api/address', ['zip' => '3300063']);
+
+        $this->assertSame(200, $response->status);
     }
 
     // ---- エラーとリダイレクト ------------------------------------------------
