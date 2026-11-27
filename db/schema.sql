@@ -15,3 +15,31 @@ CREATE TABLE IF NOT EXISTS post_codes (
     KEY idx_post_code_nohyphen (post_code_noHyphen),
     KEY idx_pref_muni (prefecture, municipality)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- -----------------------------------------------------------------------------
+-- 都道府県マスタ・市区町村マスタ
+--   post_codes（約12万件）から、プルダウンに出す一覧だけを集計しておくテーブル。
+--   画面を開くたびに post_codes 全体を GROUP BY しなくて済むようにする（性能改善）。
+--   中身は db/refresh_masters.sql で post_codes から作り直す（郵便番号データを取り込むたびに実行）。
+--   sort_order には post_codes の最小 id を入れる。日本郵便のデータは全国地方公共団体コード順に
+--   並んでいるので、sort_order の順に並べると「北海道 → 沖縄県」の順になる。
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS prefectures (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name       VARCHAR(10)  NOT NULL COMMENT '都道府県',
+    sort_order INT UNSIGNED NOT NULL COMMENT '並び順（post_codes の最小 id）',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_prefectures_name (name),
+    KEY idx_prefectures_sort (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE IF NOT EXISTS municipalities (
+    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    prefecture_id INT UNSIGNED NOT NULL,
+    name          VARCHAR(50)  NOT NULL COMMENT '市区町村',
+    sort_order    INT UNSIGNED NOT NULL COMMENT '並び順（post_codes の最小 id）',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_municipalities_pref_name (prefecture_id, name),
+    KEY idx_municipalities_pref_sort (prefecture_id, sort_order),
+    CONSTRAINT fk_municipalities_prefecture FOREIGN KEY (prefecture_id) REFERENCES prefectures (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

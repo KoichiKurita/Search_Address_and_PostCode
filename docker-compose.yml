@@ -46,6 +46,7 @@ services:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./db/seed_sample.sql:/docker-entrypoint-initdb.d/02_seed_sample.sql:ro
       - ./docker/mysql/03_readonly_user.sh:/docker-entrypoint-initdb.d/03_readonly_user.sh:ro
+      - ./db/refresh_masters.sql:/docker-entrypoint-initdb.d/04_refresh_masters.sql:ro
     healthcheck:
       # mysqladmin ping は「接続を拒否された」場合も成功扱いになるため、初期化の途中でも healthy になってしまう。
       # アプリと同じ参照専用ユーザーで、TCP（127.0.0.1）経由で実際に検索できるかを確認する。

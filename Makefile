@@ -57,7 +57,8 @@ seed-full: ## 日本郵便の全国データ（約12万件）をダウンロー�
 	unzip -o -q $(WORK_DIR)/utf_ken_all.zip -d $(WORK_DIR)
 	python3 db/ken_all_to_sql.py $(WORK_DIR)/utf_ken_all.csv $(WORK_DIR)/out
 	cat $(WORK_DIR)/out/*.sql | $(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE"'
-	$(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE" -e "SELECT COUNT(*) AS count FROM post_codes;"'
+	$(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE"' < db/refresh_masters.sql
+	$(COMPOSE) exec -T db sh -c 'mysql -u"$$MYSQL_USER" -p"$$MYSQL_PASSWORD" "$$MYSQL_DATABASE" -e "SELECT (SELECT COUNT(*) FROM post_codes) AS post_codes, (SELECT COUNT(*) FROM prefectures) AS prefectures, (SELECT COUNT(*) FROM municipalities) AS municipalities;"'
 
 db-reset: ## DB を削除して作り直す（サンプルデータに戻る）
 	$(COMPOSE) down -v

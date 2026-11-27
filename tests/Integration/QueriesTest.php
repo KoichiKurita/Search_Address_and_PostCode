@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
  * DB を検索する関数（src/queries.php）のテスト
  *
  * 本番は MySQL だが、テストでは準備がいらない SQLite のメモリ上の DB を使う。
- * 使っている SQL（GROUP BY・MIN・LIKE ... ESCAPE）は、MySQL と SQLite のどちらでも同じ結果になる。
- * テストごとに DB を作り直すので、テスト同士が影響し合わない。
+ * 使っている SQL（JOIN・GROUP BY・MIN・LIKE ... ESCAPE）は、MySQL と SQLite のどちらでも同じ結果になる。
+ * 都道府県・市区町村のマスタは、本番と同じ db/refresh_masters.sql を実行して作る。
  */
 final class QueriesTest extends TestCase
 {
@@ -30,6 +30,18 @@ final class QueriesTest extends TestCase
             municipality TEXT NOT NULL,
             town_area TEXT NOT NULL DEFAULT ""
         )');
+        $this->pdo->exec('CREATE TABLE prefectures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            sort_order INTEGER NOT NULL
+        )');
+        $this->pdo->exec('CREATE TABLE municipalities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prefecture_id INTEGER NOT NULL REFERENCES prefectures (id),
+            name TEXT NOT NULL,
+            sort_order INTEGER NOT NULL,
+            UNIQUE (prefecture_id, name)
+        )');
 
         // id の順（＝全国地方公共団体コード順）に入れる。
         // 「さいたま市浦和区」「さいたま市大宮区」は、文字コード順に並べると逆（大宮区が先）になるので、
@@ -46,6 +58,30 @@ final class QueriesTest extends TestCase
         foreach ($rows as [$postCode, $prefecture, $municipality, $townArea]) {
             $statement->execute([$postCode, str_replace('-', '', $postCode), $prefecture, $municipality, $townArea]);
         }
+
+        $this->refreshMasters();
+    }
+
+    /**
+     * 本番と同じ SQL ファイルで、都道府県・市区町村のマスタを作り直す
+     */
+    private function refreshMasters(): void
+    {
+        $sql = file_get_contents(dirname(__DIR__, 2) . '/db/refresh_masters.sql');
+        $this->assertIsString($sql);
+        $this->pdo->exec($sql);
+    }
+
+    public function testRefreshMastersCanRunRepeatedly(): void
+    {
+        // 郵便番号データを取り込むたびに実行するので、何度実行しても同じ結果になること
+        $this->refreshMasters();
+        $this->refreshMasters();
+        $this->assertSame(['北海道', '埼玉県', '東京都'], get_prefecture($this->pdo)->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame(
+            ['さいたま市浦和区', 'さいたま市大宮区'],
+            get_municipality($this->pdo, '埼玉県')->fetchAll(PDO::FETCH_COLUMN)
+        );
     }
 
     public function testGetPrefectureIsOrderedById(): void
