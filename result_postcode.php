@@ -1,67 +1,67 @@
 <?php
-    declare(strict_types=1);
+declare(strict_types=1);
 
-    /**
-     * Webアプリ実践課題
-     * 郵便番号検索(result_postcode.php)
-     * 作成者：リンクス新越谷 栗田幸一
-     * 作成日：2023.3.31
-     * 修正日：2026.11.27
-     *
-     * 住所（都道府県・市区町村・町名）から郵便番号を検索し、結果を表示する
-     * ※ ステータスコードを正しく返せるよう、HTML を出力する前にすべての処理を終える
-     */
+/**
+ * Webアプリ実践課題
+ * 郵便番号検索(result_postcode.php)
+ * 作成者：リンクス新越谷 栗田幸一
+ * 作成日：2023.3.31
+ * 修正日：2026.11.27
+ *
+ * 住所（都道府県・市区町村・町名）から郵便番号を検索し、結果を表示する
+ * ※ ステータスコードを正しく返せるよう、HTML を出力する前にすべての処理を終える
+ */
 
-    require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み
+require_once dirname(__FILE__) . '/functions.php';   // 外部関数読み込み
 
-    // 検索条件（未入力や、配列が送られた場合は空文字にする）
-    $prefecture   = query_string($_GET, 'prefecture');
-    $municipality = query_string($_GET, 'municipality');
-    $town_area    = trim(query_string($_GET, 'town_area'));
+// 検索条件（未入力や、配列が送られた場合は空文字にする）
+$prefecture   = query_string($_GET, 'prefecture');
+$municipality = query_string($_GET, 'municipality');
+$town_area    = trim(query_string($_GET, 'town_area'));
 
-    $rows_postcode = [];    // 検索結果
-    $error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）
-    $is_fallback = false;   // 町名で見つからず、市区町村だけで検索し直したかどうか
+$rows_postcode = [];    // 検索結果
+$error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）
+$is_fallback = false;   // 町名で見つからず、市区町村だけで検索し直したかどうか
 
-    try {
-        $pdo = connect();   // DB接続
+try {
+    $pdo = connect();   // DB接続
 
-        // 都道府県の一覧（プルダウンの表示と、入力値の検証の両方に使う）
-        $prefectures = get_prefecture($pdo)->fetchAll(PDO::FETCH_COLUMN);
+    // 都道府県の一覧（プルダウンの表示と、入力値の検証の両方に使う）
+    $prefectures = get_prefecture($pdo)->fetchAll(PDO::FETCH_COLUMN);
 
-        // 入力値の検証：都道府県・市区町村は「DB に存在する値か」で確かめる（ホワイトリスト方式）
-        // in_array の第3引数 true は、型まで含めて厳密に比較する指定
-        if (!in_array($prefecture, $prefectures, true)) {
-            $error_message = '都道府県を選択してください。';
-        } elseif (!in_array($municipality, get_municipality($pdo, $prefecture)->fetchAll(PDO::FETCH_COLUMN), true)) {
-            $error_message = '市区町村を選択してください。';
-        } elseif (mb_strlen($town_area) > TOWN_AREA_MAX_LENGTH) {
-            $error_message = '町名は'. TOWN_AREA_MAX_LENGTH. '文字以内で入力してください。';
-        }
-
-        if ($error_message !== '') {
-            // 入力値が正しくない場合は検索せず、400（Bad Request）を返す
-            http_response_code(400);
-        } else {
-            // 町名の入力の有無で検索処理を分ける
-            // fetchAll で配列として受け取り、件数は count() で数える
-            if ($town_area !== '') { // 町名が入力されている場合
-                $rows_postcode = search_post_code($pdo, $prefecture, $municipality, $town_area)->fetchAll(PDO::FETCH_ASSOC);
-            } else {    // 町名が入力されていない場合
-                $rows_postcode = search_post_code($pdo, $prefecture, $municipality)->fetchAll(PDO::FETCH_ASSOC);
-            }
-
-            // 町名で0件だった場合は、都道府県+市区町村で検索し直す
-            // （町名が未入力のときは、上ですでに同じ検索をしているので行わない）
-            if (count($rows_postcode) === 0 && $town_area !== '') {
-                $rows_postcode = search_post_code($pdo, $prefecture, $municipality)->fetchAll(PDO::FETCH_ASSOC);
-                $is_fallback = count($rows_postcode) > 0;
-            }
-        }
-    } catch (PDOException $e) {
-        error_log(basename(__FILE__). ': '. $e->getMessage());   // 詳細はサーバーログにのみ記録する
-        render_error_page(500, '郵便番号の検索に失敗しました。時間をおいて再度お試しください。');
+    // 入力値の検証：都道府県・市区町村は「DB に存在する値か」で確かめる（ホワイトリスト方式）
+    // in_array の第3引数 true は、型まで含めて厳密に比較する指定
+    if (!in_array($prefecture, $prefectures, true)) {
+        $error_message = '都道府県を選択してください。';
+    } elseif (!in_array($municipality, get_municipality($pdo, $prefecture)->fetchAll(PDO::FETCH_COLUMN), true)) {
+        $error_message = '市区町村を選択してください。';
+    } elseif (mb_strlen($town_area) > TOWN_AREA_MAX_LENGTH) {
+        $error_message = '町名は' . TOWN_AREA_MAX_LENGTH . '文字以内で入力してください。';
     }
+
+    if ($error_message !== '') {
+        // 入力値が正しくない場合は検索せず、400（Bad Request）を返す
+        http_response_code(400);
+    } else {
+        // 町名の入力の有無で検索処理を分ける
+        // fetchAll で配列として受け取り、件数は count() で数える
+        if ($town_area !== '') { // 町名が入力されている場合
+            $rows_postcode = search_post_code($pdo, $prefecture, $municipality, $town_area)->fetchAll(PDO::FETCH_ASSOC);
+        } else {    // 町名が入力されていない場合
+            $rows_postcode = search_post_code($pdo, $prefecture, $municipality)->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        // 町名で0件だった場合は、都道府県+市区町村で検索し直す
+        // （町名が未入力のときは、上ですでに同じ検索をしているので行わない）
+        if (count($rows_postcode) === 0 && $town_area !== '') {
+            $rows_postcode = search_post_code($pdo, $prefecture, $municipality)->fetchAll(PDO::FETCH_ASSOC);
+            $is_fallback = count($rows_postcode) > 0;
+        }
+    }
+} catch (PDOException $e) {
+    error_log(basename(__FILE__) . ': ' . $e->getMessage());   // 詳細はサーバーログにのみ記録する
+    render_error_page(500, '郵便番号の検索に失敗しました。時間をおいて再度お試しください。');
+}
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -117,7 +117,7 @@
             <hr class="divider">
 
             <!-- フォームに入力された住所とデータベースで検索した結果を表形式で表示する -->
-            <h1 id="result_heading">住所「<?=escape($prefecture. $municipality. $town_area)?>」の郵便番号の検索結果：<?=count($rows_postcode)?>件</h1>
+            <h1 id="result_heading">住所「<?=escape($prefecture . $municipality . $town_area)?>」の郵便番号の検索結果：<?=count($rows_postcode)?>件</h1>
 
             <?php if ($is_fallback): ?>
                 <!-- 町名では見つからず、市区町村全体の結果を表示していることを利用者に知らせる -->

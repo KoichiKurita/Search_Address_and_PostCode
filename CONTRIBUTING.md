@@ -48,6 +48,7 @@ gh issue develop 5 --name fix/5-fullwidth-hyphen --base main --checkout
 
 # 3. 実装して動作確認
 make up
+make fmt          # コードを自動整形（PSR-12）
 make lint
 make test
 make stan

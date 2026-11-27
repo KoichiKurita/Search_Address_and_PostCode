@@ -16,7 +16,7 @@ WORK_DIR := db/work
 KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
 KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
 
-.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint omposer-install composer test stan gh-setup gh-setup-dry
+.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint composer-install composer test stan fmt fmt-check gh-setup gh-setup-dry
 
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -78,6 +78,12 @@ test: ## PHPUnit でテストを実行する（初回は make composer-install �
 stan: ## PHPStan で静的解析する（CI と同じ内容）
 	$(RUN_APP) vendor/bin/phpstan analyse --memory-limit=1G
 
+fmt: ## PHP-CS-Fixer でコードを自動整形する（PSR-12）
+	$(RUN_APP) vendor/bin/php-cs-fixer fix
+
+fmt-check: ## 整形が必要な箇所を表示するだけ（CI と同じ内容。ファイルは変更しない）
+	$(RUN_APP) vendor/bin/php-cs-fixer fix --dry-run --diff
+	
 gh-setup-dry: ## GitHub 設定の確認だけ（何も変更しない）
 	python3 scripts/github/setup.py all --dry-run
 
