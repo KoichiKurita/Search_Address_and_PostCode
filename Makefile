@@ -8,9 +8,9 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 WORK_DIR := db/work
 # 日本郵便「住所の郵便番号（1レコード1行、UTF-8形式）」全国一括データ
-# サイト移転に備えて新旧2つの URL を順に試す（KEN_ALL_URL=... で上書き可）
-KEN_ALL_URL ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
-KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
+# 現在の URL を先に試し、使えなければ移転前の URL を試す（KEN_ALL_URL=... で上書き可）
+KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
+KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
 
 .PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint gh-setup gh-setup-dry
 

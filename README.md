@@ -78,7 +78,7 @@ erDiagram
         CHAR(7) post_code_noHyphen "郵便番号（ハイフンなし）例: 3300063"
         VARCHAR(10) prefecture "都道府県"
         VARCHAR(50) municipality "市区町村"
-        VARCHAR(255) town_area "町域"
+        VARCHAR(1000) town_area "町域（最長297文字のものがある）"
     }
 ```
 
