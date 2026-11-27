@@ -50,6 +50,7 @@ gh issue develop 5 --name fix/5-fullwidth-hyphen --base main --checkout
 make up
 make lint
 make test
+make stan
 
 # 4. コミットして push
 git add -A

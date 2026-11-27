@@ -16,6 +16,7 @@ vendor/
 composer.json
 composer.lock
 phpunit.xml
+phpstan.neon
 .phpunit.cache/
 *.md
 config_dummy.php

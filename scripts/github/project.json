@@ -15,7 +15,7 @@
 
   "ruleset": {
     "name": "protect-main",
-    "required_status_checks": ["PHP 構文チェック"]
+    "required_status_checks": ["PHP 構文チェック", "テスト・静的解析"]
   },
 
   "environment": {
