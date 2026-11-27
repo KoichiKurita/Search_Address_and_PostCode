@@ -34,6 +34,7 @@ final readonly class View
     {
         $html = $this->render('layout', [
             'basePath' => $request->basePath,
+            'path' => $request->path,
             'title' => $title,
             'content' => $this->render($template, $data),
             'script' => $script,
