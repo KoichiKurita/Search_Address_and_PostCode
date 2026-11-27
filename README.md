@@ -124,7 +124,9 @@ erDiagram
 ├── search_postcode.php        郵便番号検索（入力画面）
 ├── result_postcode.php        郵便番号検索（結果画面）
 ├── get_municipality.php       市区町村一覧を返す API（JSON）
-├── functions.php              DB 接続・検索・入力の正規化
+├── functions.php              DB 接続、エラーページ・JSON の応答
+├── src/                       入力の正規化・検証（helpers.php）と、DB の検索（queries.php）
+├── tests/                     PHPUnit のテスト（Unit: 関数単体、Integration: DB の検索）
 ├── css/ js/                   スタイルと JavaScript（ES Modules）
 ├── db/                        テーブル定義、サンプルデータ、日本郵便データの変換スクリプト
 ├── docker/ docker-compose.yml ローカル開発環境
@@ -149,6 +151,8 @@ http://localhost:8080/search_address.html を開き、`330-0063` で検索でき
 |---|---|
 | `make seed-full` | 日本郵便の全国データ（約12万件）をダウンロードして投入する |
 | `make lint` | PHP の構文チェック（CI と同じ内容） |
+| `make composer-install` | Composer で PHPUnit などをインストールする（初回のみ） |
+| `make test` | PHPUnit でテストを実行する |
 | `make tools` | phpMyAdmin を起動する（http://localhost:8081） |
 | `make help` | コマンドの一覧 |
 

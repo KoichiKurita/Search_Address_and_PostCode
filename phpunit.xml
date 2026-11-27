@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PHPUnit の設定（make test で実行する） -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         displayDetailsOnTestsThatTriggerWarnings="true">
+    <testsuites>
+        <!-- DB を使わない関数のテスト -->
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <!-- DB を検索する関数のテスト（SQLite のメモリ上の DB を使う） -->
+        <testsuite name="integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <!-- テストの対象にするソースコード（カバレッジの計測範囲） -->
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

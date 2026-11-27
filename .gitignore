@@ -4,6 +4,11 @@
 
 # ローカル開発環境
 .env
+
+# Composer でインストールしたパッケージと、PHPUnit のキャッシュ（composer.lock はコミットする）
+/vendor/
+/.phpunit.cache/
+
 /db/work/
 
 # GitHub 設定スクリプト用の秘密情報（scripts/github/deploy.env.example を参照）
