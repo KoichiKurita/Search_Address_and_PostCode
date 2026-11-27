@@ -16,7 +16,7 @@ WORK_DIR := db/work
 KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
 KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
 
-.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint composer-install composer test stan fmt fmt-check gh-setup gh-setup-dry
+.PHONY: help init build up down restart logs ps sh db tools seed-full db-reset lint composer-install composer test stan fmt fmt-check gh-setup gh-setup-dry
 
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -29,12 +29,15 @@ init: ## 初回セットアップ（.env 作成 → ビルド → 起動）
 
 up: ## 開発環境を起動
 	$(COMPOSE) up -d
-	@echo "→ http://localhost:$${APP_PORT:-8080}/search_address.html"
+	@echo "→ http://localhost:$${APP_PORT:-8080}/address"
 
 down: ## 開発環境を停止
 	$(COMPOSE) down
 
 restart: down up ## 再起動
+
+build: ## Docker のイメージを作り直す（docker/php/Dockerfile を変えたとき）
+	$(COMPOSE) build
 
 logs: ## ログを表示（Ctrl+C で終了）
 	$(COMPOSE) logs -f

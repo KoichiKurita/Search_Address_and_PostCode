@@ -1,19 +1,24 @@
 /*
     郵便番号・住所検索(municipality.js)
     都道府県のプルダウンに合わせて、市区町村のプルダウンを作り直す
-    郵便番号検索フォーム（search_postcode.php / result_postcode.php）で共通して使う
+    郵便番号検索の画面（/postcode）で使う
  */
 
-import {PATH_GET_MUNICIPALITY_PROCESS} from "./config.js";
+/**
+ * 市区町村の一覧を返す API の URL
+ * 相対パスなので、アプリを置いている場所（<base href>）が変わっても書き換えなくてよい
+ * （以前は環境ごとに config.js で設定していた）
+ */
+const API_MUNICIPALITIES = 'api/municipalities';
 
 /**
- * 都道府県に対応する市区町村の一覧を、get_municipality.php から取得する
+ * 都道府県に対応する市区町村の一覧を、API から取得する
  * @param {string} prefecture 都道府県名
  * @return {Promise<string[]>} 市区町村名の配列
  * @throws {Error} 通信エラー、またはサーバー側でエラーが起きたとき
  */
 export const fetchMunicipalities = async (prefecture) => {
-    const response = await fetch(PATH_GET_MUNICIPALITY_PROCESS, {
+    const response = await fetch(API_MUNICIPALITIES, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(prefecture),
@@ -60,7 +65,6 @@ export const setupMunicipalitySelect = async (initialMunicipality = '') => {
     const load = async (selectedName) => {
         const requestId = ++latestRequest;
 
-        errorMessage.textContent = '';
         replaceOptions(municipalitySelect, []);
         municipalitySelect.disabled = true;     // 取得中・未選択のあいだは選べないようにする
 
@@ -81,7 +85,12 @@ export const setupMunicipalitySelect = async (initialMunicipality = '') => {
         }
     };
 
-    prefectureSelect.addEventListener('change', () => load(''));
+    // 都道府県を選び直したら、前のエラーメッセージを消してから読み込む
+    // （画面を開いたときには消さない。サーバーが表示した入力エラーのメッセージを残すため）
+    prefectureSelect.addEventListener('change', () => {
+        errorMessage.textContent = '';
+        load('');
+    });
 
     // 画面を開いた時点で都道府県が選ばれていれば（検索結果画面）、市区町村を読み込む
     await load(initialMunicipality);

@@ -145,7 +145,13 @@ jobs:
         run: |
           # DB に接続するページを叩き、HTTP 200 が返るかを確認する
           curl -fsS -o /dev/null --retry 3 --retry-delay 5 --max-time 10 \
-            "$APP_URL/search_postcode.php"
+            "$APP_URL/postcode"
+          # 公開ルート（public/）の外にあるファイルが、URL から見えないことを確認する（200 なら失敗）
+          for path in config.php bootstrap.php vendor/autoload.php src/helpers.php composer.json; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$APP_URL/$path")
+            echo "$path → $status"
+            [ "$status" != "200" ] || { echo "公開してはいけないファイルが見えています: $path" >&2; exit 1; }
+          done
           echo "OK: $APP_URL"
 
       - name: 失敗時は直前のリリースへ自動ロールバック

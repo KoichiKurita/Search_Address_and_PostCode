@@ -7,7 +7,7 @@
 日本郵便の郵便番号データ（約12万件）を使った、**郵便番号 → 住所** と **住所 → 郵便番号** の双方向検索ツールです。
 フレームワークを使わずに PHP で作り、Docker での開発環境、GitHub Actions による自動デプロイ、GitHub の設定のコード化まで整えています。
 
-**デモ:** https://graycow428.sakura.ne.jp/postcode/search_address.html
+**デモ:** https://graycow428.sakura.ne.jp/postcode/address
 
 | 住所検索（郵便番号 → 住所） | 郵便番号検索（住所 → 郵便番号） |
 |---|---|
@@ -45,7 +45,7 @@ flowchart LR
 
     subgraph sakura["さくらのレンタルサーバ（FreeBSD）"]
         direction TB
-        web["Apache + PHP 8.3<br/>~/www/postcode → current"]
+        web["Apache + PHP 8.3<br/>~/www/postcode → current/public"]
         rel["~/apps/postcode<br/>releases/（直近5件）<br/>shared/config.php"]
         db[("MySQL 8.0<br/>post_codes")]
         web --> rel
@@ -105,7 +105,7 @@ erDiagram
 
 ### 1. 値オブジェクトと、入力の揺れを吸収する正規化
 郵便番号は `App\Domain\PostalCode`（値オブジェクト）で表します。正しい郵便番号からしか作れないので、
-検索の関数 `search_address(PDO $pdo, PostalCode $postal_code)` には、**検証されていない文字列を型として渡せません**。
+検索のメソッド `findByPostalCode(PostalCode $postalCode)` には、**検証されていない文字列を型として渡せません**。
 作られた時点で「ハイフンなしの7桁」に正規化されているので、ハイフンの有無で SQL を分ける必要もなくなりました。
 DB の検索は Repository（`App\Domain\PostCodeRepository` と、その PDO による実装）にまとめ、検索結果は型の決まった `Address` オブジェクトで返します。
 画面は SQL も配列のキーも知らずに `$address->prefecture` のように使えるため、PHPStan を最も厳しい **max レベル**にしても指摘は0件です。
@@ -124,6 +124,7 @@ DB の検索は Repository（`App\Domain\PostCodeRepository` と、その PDO �
   - 本番：レンタルサーバでは権限を絞ったユーザーを作れない（`CREATE USER` / `GRANT` の権限がない）ため、接続直後に**セッションを読み取り専用**（`SET SESSION TRANSACTION READ ONLY`）にして、書き込み系の SQL を DB 側で拒否している
 - HTML へのエスケープは**出力する場所で1回だけ**行う（JSON には生の値を入れ、JS 側は `textContent` / `new Option()` で扱う）
 - DB エラーの詳細は画面に出さず、サーバーのログにだけ記録する
+- 公開するのは `public/`（フロントコントローラ・CSS・JS）だけにし、設定ファイル・ソースコード・`vendor/` は URL から開けない場所に置いている。デプロイ後のヘルスチェックでも、これらが見えないことを毎回確かめている
 - DB の接続情報（`config.php`）は、Git に入れず、公開ディレクトリの外に置いている
 - デプロイ用の SSH 鍵は専用のものを使い、`restrict` オプションでポート転送などを無効にしている
 - `.htaccess` で、セキュリティヘッダ（CSP・HSTS など）を付け、設定ファイルや隠しファイルへのアクセスを拒否している（[securityheaders.com](https://securityheaders.com/) で A+ 評価）
@@ -144,25 +145,40 @@ DB の検索は Repository（`App\Domain\PostCodeRepository` と、その PDO �
 
 改善の前後で、一覧の内容と並び順が完全に一致することも確認しています。
 
-### 6. 非同期処理の競合対策
+### 6. フロントコントローラとテンプレート
+以前は画面ごとに PHP ファイル（`search_address.html`・`result_address.php` など）があり、`<head>` や検索フォームを各ファイルにコピーしていました。
+すべてのリクエストを `public/index.php` で受け、URL と処理の対応を [`Application`](src/Http/Application.php) の1か所にまとめました。
+
+```
+ブラウザ → public/index.php → Router → コントローラ → Repository（DB）
+                                              └→ View → templates/（layout.php に各画面をはめ込む）
+```
+
+- コントローラは `echo` や `header()` を使わず、`Response` オブジェクトを返します。そのため **Web サーバーを起動しなくても**、URL ごとのステータスコード・ヘッダー・HTML を PHPUnit で確かめられます（`tests/Feature`）
+- 入力画面と結果画面は同じフォームを表示していたので、1つの URL（`/address`・`/postcode`）にまとめました
+- テンプレートの先頭に、受け取る変数の型を `@var` で書いているので、テンプレートの中も PHPStan（max）で検査されます
+- 以前の URL は、クエリパラメータを引き継いで新しい URL へ移動させます（301。API は POST のまま送り直させる 308）
+
+### 7. 非同期処理の競合対策
 都道府県をすばやく切り替えたとき、遅れて届いた古いリクエストの結果で市区町村の一覧が上書きされないように、リクエストに番号を付けて最新の結果だけを反映しています（[`js/municipality.js`](js/municipality.js)）。
 
 ## ディレクトリ構成
 
 ```
 .
-├── search_address.html        住所検索（入力画面）
-├── result_address.php         住所検索（結果画面）
-├── search_postcode.php        郵便番号検索（入力画面）
-├── result_postcode.php        郵便番号検索（結果画面）
-├── get_municipality.php       市区町村一覧を返す API（JSON）
-├── functions.php              DB 接続、エラーページ・JSON の応答
+├── public/                    公開ルート（URL から見えるのはここだけ）
+│   ├── index.php              フロントコントローラ（すべてのリクエストの入口）
+│   ├── .htaccess              index.php への振り分け、HTTPS へのリダイレクト、セキュリティヘッダ
+│   └── css/ js/               スタイルと JavaScript（ES Modules）
 ├── src/
+│   ├── Http/                  リクエスト・レスポンス・ルーター・テンプレートの表示、URL の対応表（Application）
+│   ├── Controller/            画面と API の処理（住所検索・郵便番号検索・市区町村 API）
 │   ├── Domain/                値オブジェクト（PostalCode・Address）と Repository のインターフェース
 │   ├── Infrastructure/        Repository の実装（PDO。SQL はここだけ）
 │   └── helpers.php            画面で使う小さな関数（エスケープ・ページングの計算など）
-├── tests/                     PHPUnit のテスト（Unit: 関数単体、Integration: DB の検索）
-├── css/ js/                   スタイルと JavaScript（ES Modules）
+├── templates/                 HTML のテンプレート（共通レイアウト・各画面・エラーページ）
+├── bootstrap.php              設定・オートローダーの読み込みと DB 接続
+├── tests/                     PHPUnit のテスト（Unit: 関数・クラス単体、Integration: DB の検索、Feature: URL ごとの画面・API）
 ├── db/                        テーブル定義、サンプルデータ、日本郵便データの変換スクリプト
 ├── docker/ docker-compose.yml ローカル開発環境
 ├── deploy/                    サーバー上で実行するデプロイスクリプト
@@ -180,11 +196,12 @@ cd Search_Address_and_PostCode
 make init        # .env の作成 → ビルド → 起動（サンプルデータ入り）
 ```
 
-http://localhost:8080/search_address.html を開き、`330-0063` で検索できれば起動完了です。
+http://localhost:8080/address を開き、`330-0063` で検索できれば起動完了です。
 
 | コマンド | 内容 |
 |---|---|
 | `make seed-full` | 日本郵便の全国データ（約12万件）をダウンロードして投入する |
+| `make build` | Docker のイメージを作り直す（Dockerfile を変えたとき） |
 | `make lint` | PHP の構文チェック（CI と同じ内容） |
 | `make composer-install` | Composer で PHPUnit などをインストールする（初回のみ） |
 | `make test` | PHPUnit でテストを実行する |

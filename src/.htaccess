@@ -1,2 +1,0 @@
-# src/ の PHP ファイルは functions.php から読み込むためのもので、URL から直接開くものではない
-Require all denied

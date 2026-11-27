@@ -16,6 +16,10 @@
         <testsuite name="integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <!-- アプリ全体（URL → 画面・API）のテスト。Web サーバーを起動せずに、Request から Response を確かめる -->
+        <testsuite name="feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
     </testsuites>
 
     <!-- テストの対象にするソースコード（カバレッジの計測範囲） -->

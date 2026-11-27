@@ -33,7 +33,7 @@ PHP 8.3 で動作確認済みです（2026年10月の PHP 脆弱性 CVE-2026-109
 
 ## 4. 設定ファイルの作成
 
-`config.php` と `js/config.js` は `.gitignore` 対象なので、ダミーをコピーして作ります。
+`config.php` は `.gitignore` 対象なので、ダミーをコピーして作ります。
 
 **config.php**（`config_dummy.php` をコピー）
 
@@ -43,23 +43,18 @@ define("DB_USER", "<ユーザー名>");
 define("DB_PASS", "<パスワード>");
 ```
 
-**js/config.js**（`js/config_dummy.js` をコピー）
-
-```js
-const PATH_GET_MUNICIPALITY_PROCESS = "get_municipality.php";
-```
+> 以前は `js/config.js` も必要でしたが、#29 で API の URL を相対パスにしたため不要になりました。
 
 ## 5. アップロード
 
-1. ファイルマネージャーか FTP で `/home/<アカウント名>/www/postcode/` などに配置する
-   - アップロード不要: `.git/`, `db/`, `MIGRATION.md`, `config_dummy.php`, `js/config_dummy.js`
+1. 現在は GitHub Actions で自動デプロイしています（[DEPLOY.md](DEPLOY.md)）。公開するのは `public/` だけです
 2. コントロールパネルで独自ドメイン（または初期ドメイン）の **無料SSL** を有効にする
 
 ## 6. 動作確認
 
-- `https://<ドメイン>/postcode/search_address.html` で `330-0063` を検索し、住所が出る
+- `https://<ドメイン>/postcode/address` で `330-0063` を検索し、住所が出る
 - 全角ハイフン（`330ー0063`）やハイフンなし（`3300063`）でも同じ結果になる
-- `search_postcode.php` で都道府県を選ぶと市区町村の選択肢が出る
+- `https://<ドメイン>/postcode/postcode` で都道府県を選ぶと市区町村の選択肢が出る
 
 ## 今回のコード修正（PHP 8.3 対応）
 

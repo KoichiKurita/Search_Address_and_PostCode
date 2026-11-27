@@ -9,7 +9,7 @@ declare(strict_types=1);
  *
  * DB や画面に依存しない関数と定数（入力の正規化・検証・エスケープ）
  * 入力と出力だけで結果が決まる「純粋な関数」なので、PHPUnit で単体テストしやすい
- * functions.php とテスト（tests/bootstrap.php）の両方から読み込む
+ * bootstrap.php とテスト（tests/bootstrap.php）の両方から読み込む
  */
 
 use App\Domain\PostalCode;
