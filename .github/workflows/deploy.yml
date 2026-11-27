@@ -1,6 +1,6 @@
 # 郵便番号・住所検索 CI/CD
-# - Pull Request 作成・更新時   : 構文チェック（lint）のみ
-# - main への push / マージ時 : lint → さくらのレンタルサーバへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
+# - Pull Request 作成・更新時 : 構文チェック（lint）、テスト（PHPUnit）、静的解析（PHPStan）
+# - main への push / マージ時 : 上記がすべて通ったら → さくらのレンタルサーバへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
 name: CI/CD
 
 on:
@@ -35,9 +35,39 @@ jobs:
           python3 -m py_compile db/ken_all_to_sql.py scripts/github/setup.py
           python3 -c "import json; json.load(open('scripts/github/project.json', encoding='utf-8'))"
 
+  test:
+    name: テスト・静的解析
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite   # テストで SQLite のメモリ上の DB を使う
+          coverage: none
+          tools: composer:v2
+
+      # composer.lock が変わらない限り、前回インストールしたパッケージを使い回して速くする
+      - name: Composer のキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+      - name: パッケージのインストール（composer.lock のバージョンどおり）
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: テスト（PHPUnit）
+        run: vendor/bin/phpunit
+
+      - name: 静的解析（PHPStan）
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
   deploy:
     name: さくらのレンタルサーバへデプロイ
-    needs: lint
+    # 構文チェック・テスト・静的解析がすべて通ったときだけデプロイする
+    needs: [lint, test]
     # PR では動かさず、デフォルトブランチへの push（マージ含む）と手動実行のときだけ動かす
     # リポジトリの Variable「DEPLOY_ENABLED」が 'true' のときだけデプロイする（停止スイッチ）
     # ※ Environment の Variables はジョブの if を評価する時点ではまだ読めないため、リポジトリ側の Variable で判定する

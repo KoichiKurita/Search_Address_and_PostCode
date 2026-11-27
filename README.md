@@ -32,7 +32,8 @@
 | フロントエンド | HTML / CSS / JavaScript（ES Modules） | ビルド不要で、ブラウザ標準の機能だけで動かす |
 | データベース | MySQL 8.0 | 本番のレンタルサーバで使える DB に合わせている |
 | 開発環境 | Docker Compose（PHP + MySQL + phpMyAdmin）、Make | `make init` だけで、本番と同じバージョンの環境が起動する |
-| CI/CD | GitHub Actions、rsync over SSH | PR で構文チェック、`main` へのマージで本番へ自動デプロイ |
+| テスト・静的解析 | PHPUnit 12、PHPStan（レベル 9） | 関数単体と DB の検索をテストし、型の誤りを実行前に見つける |
+| CI/CD | GitHub Actions、rsync over SSH | PR で構文チェック・テスト・静的解析、すべて通ったものだけ `main` へのマージで本番へ自動デプロイ |
 | 本番環境 | さくらのレンタルサーバ（FreeBSD） | 低コストで運用できる共用サーバ |
 | プロジェクト管理 | GitHub Issues / Milestones / Rulesets（Python スクリプトで設定） | 設定を `project.json` で管理し、何度実行しても同じ状態にする |
 
@@ -153,6 +154,7 @@ http://localhost:8080/search_address.html を開き、`330-0063` で検索でき
 | `make lint` | PHP の構文チェック（CI と同じ内容） |
 | `make composer-install` | Composer で PHPUnit などをインストールする（初回のみ） |
 | `make test` | PHPUnit でテストを実行する |
+| `make stan` | PHPStan で静的解析する（レベル 9） |
 | `make tools` | phpMyAdmin を起動する（http://localhost:8081） |
 | `make help` | コマンドの一覧 |
 

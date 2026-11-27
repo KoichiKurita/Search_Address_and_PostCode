@@ -31,6 +31,19 @@
      */
     const POST_CODE_HYPHEN_PATTERN = '/[\x{30FC}\x{2010}-\x{2015}\x{2212}\x{FF70}\x{2053}\x{2E3A}\x{301C}\x{3030}\x{2500}\x{4E00}\x{FE63}\x{FF0D}\x{2043}\x{FE58}\x{23AF}\x{208B}\x{007E}]/u';
 
+    /**
+     * クエリパラメータ（$_GET など）から、文字列の値を取り出す
+     * 「?post-code[]=1」のように配列が送られた場合や、パラメータが無い場合は空文字を返す
+     * （(string) で型変換すると、配列のときに警告が出て「Array」という文字列になってしまうため）
+     * @param array<mixed> $query クエリパラメータの配列（通常は $_GET）
+     * @param string $name パラメータ名
+     * @return string パラメータの値（文字列でなければ空文字）
+     */
+    function query_string(array $query, string $name): string
+    {
+        $value = $query[$name] ?? '';
+        return is_string($value) ? $value : '';
+    }
 
     /**
      * 入力された郵便番号を正規化する
@@ -84,5 +97,9 @@
      */
     function escape(mixed $value): string
     {
-        return htmlspecialchars(strval($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // 文字列・数値・真偽値・null 以外（配列やオブジェクト）は表示できないので、空文字にする
+        if (!is_scalar($value) && $value !== null) {
+            return '';
+        }
+        return htmlspecialchars((string)$value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }

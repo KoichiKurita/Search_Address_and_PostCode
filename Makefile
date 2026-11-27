@@ -16,7 +16,7 @@ WORK_DIR := db/work
 KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
 KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
 
-.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint composer-install test gh-setup gh-setup-dry
+.PHONY: help init up down restart logs ps sh db tools seed-full db-reset lint omposer-install composer test stan gh-setup gh-setup-dry
 
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -69,8 +69,14 @@ lint: ## PHP の構文チェック（CI と同じ内容）
 composer-install: ## Composer のパッケージ（PHPUnit など）を vendor/ に入れる
 	$(RUN_APP) composer install
 
+composer: ## 任意の Composer コマンドを実行する（例: make composer ARGS="require --dev 〇〇"）
+	$(RUN_APP) composer $(ARGS)
+
 test: ## PHPUnit でテストを実行する（初回は make composer-install が必要）
 	$(RUN_APP) vendor/bin/phpunit
+
+stan: ## PHPStan で静的解析する（CI と同じ内容）
+	$(RUN_APP) vendor/bin/phpstan analyse --memory-limit=1G
 
 gh-setup-dry: ## GitHub 設定の確認だけ（何も変更しない）
 	python3 scripts/github/setup.py all --dry-run

@@ -14,10 +14,10 @@
 
     require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み
 
-    // 検索条件（未入力の場合は空文字にする：strict_types 下での TypeError 防止）
-    $prefecture   = (string)($_GET['prefecture'] ?? '');
-    $municipality = (string)($_GET['municipality'] ?? '');
-    $town_area    = trim((string)($_GET['town_area'] ?? ''));
+    // 検索条件（未入力や、配列が送られた場合は空文字にする）
+    $prefecture   = query_string($_GET, 'prefecture');
+    $municipality = query_string($_GET, 'municipality');
+    $town_area    = trim(query_string($_GET, 'town_area'));
 
     $rows_postcode = [];    // 検索結果
     $error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）

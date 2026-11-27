@@ -78,6 +78,27 @@ final class PostCodeTest extends TestCase
     {
         $this->assertFalse(is_valid_post_code($postCode));
     }
+    
+    /**
+     * @return array<string, array{array<mixed>, string}> [クエリパラメータ, 期待する結果]
+     */
+    public static function queryStringProvider(): array
+    {
+        return [
+            '文字列はそのまま'                 => [['post-code' => '330-0063'], '330-0063'],
+            'パラメータが無い'                 => [[], ''],
+            '配列（?post-code[]=1）は空文字'   => [['post-code' => ['1']], ''],
+        ];
+    }
+
+    /**
+     * @param array<mixed> $query
+     */
+    #[DataProvider('queryStringProvider')]
+    public function testQueryString(array $query, string $expected): void
+    {
+        $this->assertSame($expected, query_string($query, 'post-code'));
+    }
 
     public function testNormalizedFullWidthInputBecomesValid(): void
     {

@@ -15,7 +15,7 @@
     require_once dirname(__FILE__). '/functions.php';   // 外部関数読み込み（config.php も functions.php の中で読み込む）
 
     // 入力された郵便番号を正規化する（全角数字・各種ハイフン・前後の空白に対応）
-    $post_code = normalize_post_code((string)($_GET['post-code'] ?? ''));
+    $post_code = normalize_post_code(query_string($_GET, 'post-code'));
 
     $rows = [];             // 検索結果
     $error_message = '';    // 入力エラーのメッセージ（空ならエラーなし）

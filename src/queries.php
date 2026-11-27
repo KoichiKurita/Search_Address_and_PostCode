@@ -15,8 +15,8 @@
 
     /**
      * 都道府県を郵便番号データベースから取得する関数
-     * @param pdo $pdo データベースに接続した PHP Data Object
-     * @return PDO::prepare SQL statement を返します
+     * @param PDO $pdo データベースに接続した PHP Data Object
+     * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
      */
     function get_prefecture(PDO $pdo) :PDOStatement
     {
@@ -32,8 +32,8 @@
 
     /**
      * 市区町村を郵便番号データベースから取得する関数
-     * @param pdo $pdo データベースに接続した PHP Data Object
-     * @return PDO::prepare SQL statement を返します
+     * @param PDO $pdo データベースに接続した PHP Data Object
+     * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
      */
     function get_municipality(PDO $pdo, string $selected_prefecture) :PDOStatement
     {
@@ -49,11 +49,11 @@
 
     /**
      * 郵便番号をデータベースから検索する関数
-     * @param pdo $pdo データベースに接続した PHP Data Object
+     * @param PDO $pdo データベースに接続した PHP Data Object
      * @param string $prefecture 都道府県
      * @param string $municipality 市区町村
-     * @param string $town_area=null 町名
-     * @return PDO::prepare SQL statement を返します
+     * @param string|null $town_area 町名（null のときは町名で絞り込まない）
+     * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
      */
     function search_post_code(PDO $pdo, string $prefecture, string $municipality, ?string $town_area = null) :PDOStatement
     {
@@ -80,9 +80,9 @@
 
     /**
      * 郵便番号をデータベースから検索する関数
-     * @param pdo $pdo データベースに接続した PHP Data Object
+     * @param PDO $pdo データベースに接続した PHP Data Object
      * @param string $post_code 郵便番号
-     * @return PDO::prepare SQL statement を返します
+     * @return PDOStatement 実行済みの SQL 文（fetch / fetchAll で結果を取り出す）
      */
     function search_address(PDO $pdo, string $post_code) :PDOStatement
     {
