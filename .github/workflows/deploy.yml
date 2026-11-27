@@ -1,5 +1,5 @@
 # 郵便番号・住所検索 CI/CD
-# - Pull Request 作成・更新時 : 構文チェック（lint）、テスト（PHPUnit）、静的解析（PHPStan）
+# - Pull Request 作成・更新時 : 構文チェック（lint）、テスト（PHPUnit）、静的解析（PHPStan）、コードの書き方（PHP-CS-Fixer）
 # - main への push / マージ時 : 上記がすべて通ったら → さくらのレンタルサーバへデプロイ → ヘルスチェック（失敗時は自動ロールバック）
 name: CI/CD
 
@@ -63,6 +63,10 @@ jobs:
 
       - name: 静的解析（PHPStan）
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+        
+      # 整形が必要な箇所があれば差分を表示して失敗する（手元で make fmt を実行してからコミットする）
+      - name: コードの書き方（PHP-CS-Fixer）
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
 
   deploy:
     name: さくらのレンタルサーバへデプロイ

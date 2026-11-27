@@ -9,6 +9,8 @@
 /vendor/
 /.phpunit.cache/
 
+/.php-cs-fixer.cache
+
 /db/work/
 
 # GitHub 設定スクリプト用の秘密情報（scripts/github/deploy.env.example を参照）

@@ -78,7 +78,7 @@ final class PostCodeTest extends TestCase
     {
         $this->assertFalse(is_valid_post_code($postCode));
     }
-    
+
     /**
      * @return array<string, array{array<mixed>, string}> [クエリパラメータ, 期待する結果]
      */
