@@ -174,4 +174,28 @@ final class PdoPostCodeRepositoryTest extends TestCase
         // 漢字の町名での検索は、これまでどおり
         $this->assertSame(['330-0062'], self::postalCodes($this->repository->searchByArea('埼玉県', 'さいたま市浦和区', '仲', 50, 0)));
     }
+
+    // ---- 事業所の個別郵便番号（#36） -------------------------------------------
+
+    public function testFindOfficesByPostalCode(): void
+    {
+        $offices = $this->repository->findOfficesByPostalCode(PostalCode::fromString('100-8798'));
+
+        $this->assertCount(1, $offices);
+        $this->assertSame('日本郵便株式会社', $offices[0]->name);
+        $this->assertSame('東京都千代田区霞が関１丁目３－２', $offices[0]->fullAddress());
+        $this->assertFalse($offices[0]->isPoBox);
+    }
+
+    public function testPoBoxOffice(): void
+    {
+        $this->assertTrue($this->repository->findOfficesByPostalCode(PostalCode::fromString('3308799'))[0]->isPoBox);
+    }
+
+    public function testAddressPostalCodeHasNoOffice(): void
+    {
+        // 住所の郵便番号と、事業所の個別郵便番号は重ならない
+        $this->assertSame([], $this->repository->findOfficesByPostalCode(PostalCode::fromString('3300063')));
+        $this->assertSame([], $this->repository->findByPostalCode(PostalCode::fromString('1008798')));
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Domain\Address;
+use App\Domain\Office;
 use App\Domain\PostalCode;
 use App\Domain\PostCodeRepository;
 use App\Http\Request;
@@ -14,7 +15,9 @@ use Closure;
 /**
  * 郵便番号から住所を返す JSON API  GET /api/address?zip=3300063
  *   zip: 郵便番号（ハイフンの有無・全角数字・各種ハイフンは、画面と同じく正規化する）
- *   レスポンス: 200 … {"zip": "330-0063", "count": 1, "addresses": [{...}]}（見つからなければ count が 0）
+ *   レスポンス: 200 … {"zip": "330-0063", "count": 1, "addresses": [{...}], "offices": [{...}]}
+ *                      count は addresses の件数（offices を追加する前からの意味を変えないため）
+ *                      offices は事業所の個別郵便番号（#36）。住所の郵便番号と重なることはないので、どちらか一方だけが入る
  *               400 … zip が無い、または郵便番号の形でない
  *   エラー時は {"error_msg": "..."} を返す（405・500 は Application が返す）
  *
@@ -24,10 +27,11 @@ use Closure;
 final readonly class AddressApiController
 {
     /**
-     * 結果をブラウザなどにキャッシュしてよい秒数（1日）
-     * 郵便番号データは月に1回しか変わらないので、同じ郵便番号を何度も問い合わせさせない
+     * 結果をブラウザなどにキャッシュしてよい秒数（1時間）
+     * 長くしすぎると、データの更新や API の項目の追加が、ほかのサイトの利用者にいつまでも届かない
+     * （以前は1日にしていたが、フリガナを追加したときに、古い結果が使われ続けた）
      */
-    private const CACHE_SECONDS = 86400;
+    private const CACHE_SECONDS = 3600;
 
     /**
      * @param Closure(): PostCodeRepository $repository Repository を作る関数
@@ -45,7 +49,9 @@ final readonly class AddressApiController
                 ->withHeader('Access-Control-Allow-Origin', '*');
         }
 
-        $addresses = ($this->repository)()->findByPostalCode($postalCode);
+        $repository = ($this->repository)();
+        $addresses = $repository->findByPostalCode($postalCode);
+        $offices = $repository->findOfficesByPostalCode($postalCode);
 
         // 返す JSON の形は、ここで決める（Address のプロパティ名を変えても、API の形は変わらない）
         return Response::json([
@@ -63,6 +69,18 @@ final readonly class AddressApiController
                 'town_area_kana' => $address->townAreaKana,
                 'full_address_kana' => $address->fullAddressKana(),
             ], $addresses),
+            // 事業所の個別郵便番号（#36）
+            'offices' => array_map(static fn (Office $office): array => [
+                'zip' => $office->postalCode->withHyphen(),
+                'name' => $office->name,
+                'name_kana' => $office->nameKana,
+                'prefecture' => $office->prefecture,
+                'municipality' => $office->municipality,
+                'town_area' => $office->townArea,
+                'street' => $office->street,
+                'full_address' => $office->fullAddress(),
+                'is_po_box' => $office->isPoBox,
+            ], $offices),
         ])
             ->withHeader('Access-Control-Allow-Origin', '*')
             ->withHeader('Cache-Control', 'public, max-age=' . self::CACHE_SECONDS);

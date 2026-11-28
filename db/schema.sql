@@ -47,3 +47,24 @@ CREATE TABLE IF NOT EXISTS municipalities (
     KEY idx_municipalities_pref_sort (prefecture_id, sort_order),
     CONSTRAINT fk_municipalities_prefecture FOREIGN KEY (prefecture_id) REFERENCES prefectures (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- -----------------------------------------------------------------------------
+-- 事業所の個別郵便番号（#36）
+--   郵便物の多い大口事業所や私書箱には、その事業所だけの郵便番号が付いている（例: 100-8798 日本郵便株式会社）。
+--   住所の郵便番号とは日本郵便のデータが別で、列も違う（事業所名・番地がある）ので、別のテーブルにしている。
+--   中身は GitHub Actions が毎月入れ替える（bin/import-postcodes.php --offices）。
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS offices (
+    id                 INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    post_code          CHAR(8)      NOT NULL COMMENT '郵便番号（ハイフンあり）',
+    post_code_noHyphen CHAR(7)      NOT NULL COMMENT '郵便番号（ハイフンなし）',
+    name               VARCHAR(100) NOT NULL COMMENT '事業所名',
+    name_kana          VARCHAR(100) NOT NULL DEFAULT '' COMMENT '事業所名のフリガナ（全角カタカナ）',
+    prefecture         VARCHAR(10)  NOT NULL COMMENT '都道府県',
+    municipality       VARCHAR(50)  NOT NULL COMMENT '市区町村',
+    town_area          VARCHAR(50)  NOT NULL DEFAULT '' COMMENT '町域',
+    street             VARCHAR(100) NOT NULL DEFAULT '' COMMENT '小字・丁目・番地など',
+    is_po_box          TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1: 私書箱 / 0: 大口事業所',
+    PRIMARY KEY (id),
+    KEY idx_offices_post_code_nohyphen (post_code_noHyphen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

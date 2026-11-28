@@ -28,19 +28,35 @@ const toSearchable = (text) => text
     .toLowerCase();
 
 /**
- * 郵便番号から住所の候補を取得する
+ * 事業所の個別郵便番号（API の offices の1件）を、住所の候補と同じ形にする（#36）
+ * 事業所の場合は番地までわかるので street も入れ、候補の表示には事業所名を付ける
+ * @param {{name: string, name_kana: string, prefecture: string, municipality: string, town_area: string, street: string, full_address: string}} office
+ */
+const officeToCandidate = (office) => ({
+    prefecture: office.prefecture,
+    municipality: office.municipality,
+    town_area: office.town_area,
+    street: office.street,
+    full_address: `${office.full_address}（${office.name}）`,
+    full_address_kana: '',      // 住所のフリガナはデータに無い（事業所名のフリガナはあるが、住所の欄には入れない）
+    office_name: office.name,
+});
+
+/**
+ * 郵便番号から住所の候補を取得する（住所の郵便番号と、事業所の個別郵便番号の両方）
  * @param {string} zip 正規化済みの郵便番号
  * @param {AbortSignal} signal 取り消し用のシグナル（新しい入力があったら、前の通信を取り消す）
- * @return {Promise<Array<{zip: string, prefecture: string, municipality: string, town_area: string, full_address: string, full_address_kana: string}>>}
+ * @return {Promise<Array<{prefecture: string, municipality: string, town_area: string, full_address: string, full_address_kana: string, street?: string, office_name?: string}>>}
  * @throws {Error} 通信エラー、またはサーバー側でエラーが起きたとき（取り消したときは AbortError）
  */
 const fetchAddresses = async (zip, signal) => {
-    const response = await fetch(`${API_ADDRESS}?${new URLSearchParams({zip})}`, {signal});
+    // cache: 'no-cache' … キャッシュがあっても、使う前にサーバーに確かめる（API の項目やデータが変わったら、すぐに反映される）
+    const response = await fetch(`${API_ADDRESS}?${new URLSearchParams({zip})}`, {signal, cache: 'no-cache'});
     const data = await response.json();
     if (!response.ok) {
         throw new Error(data.error_msg ?? `住所の取得に失敗しました（HTTP ${response.status}）`);
     }
-    return data.addresses;
+    return [...data.addresses, ...(data.offices ?? []).map(officeToCandidate)];
 };
 
 /**
@@ -67,6 +83,7 @@ const setupAutofill = () => {
     let controller = null;
     let lastZip = '';
     let allCandidates = [];     // 今の郵便番号の、すべての候補
+    let streetFilledByOffice = false;   // 「番地・建物名」に、事業所の番地を自動で入れたか
 
     /** 候補の一覧と、絞り込みの入力欄を消す */
     const clearCandidates = () => {
@@ -86,7 +103,20 @@ const setupAutofill = () => {
             input.value = address[name] ?? '';
         }
         clearCandidates();
-        status.textContent = `${address.full_address} を入力しました。続けて番地を入力してください。`;
+        if (address.office_name !== undefined) {
+            // 事業所の個別郵便番号は、番地までわかるので「番地・建物名」も埋める（#36）
+            streetInput.value = address.street;
+            streetFilledByOffice = true;
+            status.textContent = `${address.office_name}（事業所の個別郵便番号）の住所を入力しました。`;
+        } else {
+            // 前に事業所の番地を入れていたら消す（別の住所に、事業所の番地が残らないように）
+            // 利用者が自分で入力した番地は、消さずに残す
+            if (streetFilledByOffice) {
+                streetInput.value = '';
+                streetFilledByOffice = false;
+            }
+            status.textContent = `${address.full_address} を入力しました。続けて番地を入力してください。`;
+        }
         streetInput.focus();
     };
 

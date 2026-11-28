@@ -13,3 +13,7 @@ INSERT INTO post_codes (post_code, post_code_noHyphen, prefecture, municipality,
 ('150-0002', '1500002', '東京都', '渋谷区', '渋谷', 'トウキョウト', 'シブヤク', 'シブヤ'),
 ('530-0001', '5300001', '大阪府', '大阪市北区', '梅田', 'オオサカフ', 'オオサカシキタク', 'ウメダ'),
 ('900-0006', '9000006', '沖縄県', '那覇市', 'おもろまち', 'オキナワケン', 'ナハシ', 'オモロマチ');
+
+-- 事業所の個別郵便番号（#36）
+INSERT INTO offices (post_code, post_code_noHyphen, name, name_kana, prefecture, municipality, town_area, street, is_po_box) VALUES
+('100-8792', '1008792', '日本郵便株式会社', 'ニツポンユウビンカブシキガイシヤ', '東京都', '千代田区', '大手町', '２丁目３－１', 0);

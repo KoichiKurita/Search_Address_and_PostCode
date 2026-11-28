@@ -20,6 +20,9 @@ WORK_DIR := db/work
 # 現在の URL を先に試し、使えなければ移転前の URL を試す（KEN_ALL_URL=... で上書き可）
 KEN_ALL_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
 KEN_ALL_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
+# 事業所の個別郵便番号（#36。Shift_JIS）
+JIGYOSYO_URL ?= https://www.post.japanpost.jp/service/search/zipcode/download/office/zip/jigyosyo.zip
+JIGYOSYO_URL_ALT ?= https://www.post.japanpost.jp/zipcode/dl/jigyosyo/zip/jigyosyo.zip
 
 .PHONY: help init build up down restart logs ps sh db tools seed-full import db-reset lint composer-install composer test stan fmt fmt-check gh-setup gh-setup-dry
 
@@ -59,19 +62,25 @@ db: ## MySQL クライアントで DB に接続
 tools: ## phpMyAdmin も起動（http://localhost:8081）
 	$(COMPOSE) --profile tools up -d
 
-seed-full: ## 日本郵便の全国データ（約12万件）をダウンロードして投入（本番の月次更新と同じ手順）
+seed-full: ## 日本郵便の全国データ（住所 約12万件・事業所 約2万件）をダウンロードして投入（本番の月次更新と同じ手順）
 	mkdir -p $(WORK_DIR)
 	curl -fsSL -o $(WORK_DIR)/utf_ken_all.zip "$(KEN_ALL_URL)" \
 	  || curl -fsSL -o $(WORK_DIR)/utf_ken_all.zip "$(KEN_ALL_URL_ALT)"
 	unzip -o -q $(WORK_DIR)/utf_ken_all.zip -d $(WORK_DIR)
 	python3 db/ken_all_to_sql.py $(WORK_DIR)/utf_ken_all.csv $(WORK_DIR)/post_codes.csv --format csv
 	$(MAKE) import CSV=$(WORK_DIR)/post_codes.csv
+	curl -fsSL -o $(WORK_DIR)/jigyosyo.zip "$(JIGYOSYO_URL)" \
+	  || curl -fsSL -o $(WORK_DIR)/jigyosyo.zip "$(JIGYOSYO_URL_ALT)"
+	@# zip の中のファイル名は大文字（JIGYOSYO.CSV）のことがあるので、名前に頼らず中身を取り出す
+	unzip -p $(WORK_DIR)/jigyosyo.zip > $(WORK_DIR)/jigyosyo.csv
+	python3 db/jigyosyo_to_csv.py $(WORK_DIR)/jigyosyo.csv $(WORK_DIR)/offices.csv
+	$(MAKE) import CSV=$(WORK_DIR)/offices.csv OFFICES=1
 
-import: ## CSV を DB に取り込む（例: make import CSV=db/work/post_codes.csv）
+import: ## CSV を DB に取り込む（例: make import CSV=db/work/post_codes.csv / 事業所は OFFICES=1 を付ける）
 	@test -n "$(CSV)" || (echo "CSV=… で取り込む CSV を指定してください" && exit 1)
 	@# アプリは SELECT だけのユーザーで動くので、取り込みのときだけ、書き込みのできるユーザーで接続する
 	$(COMPOSE) run --rm -e DB_USERNAME="$(DB_LOADER_USERNAME)" -e DB_PASSWORD="$(DB_LOADER_PASSWORD)" app \
-	  php bin/import-postcodes.php $(CSV)
+	  php bin/import-postcodes.php $(if $(OFFICES),--offices) $(CSV)
 
 db-reset: ## DB を削除して作り直す（サンプルデータに戻る）
 	$(COMPOSE) down -v

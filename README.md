@@ -18,6 +18,7 @@
 ## 機能
 
 - **住所検索**：郵便番号から住所を検索する
+  - 大口事業所・私書箱の**個別郵便番号**（例: `100-8792` 日本郵便株式会社）では、事業所名と番地までの住所を表示する
   - `330-0063`・`3300063`・`330ー0063`（長音記号）・`３３０－００６３`（全角）など、入力の揺れを吸収する
 - **郵便番号検索**：都道府県・市区町村・町名から郵便番号を検索する
   - 町名は漢字でもフリガナでも検索できる（`たかさご`・`ﾀｶｻｺﾞ` のように、ひらがな・半角カナでもよい）
@@ -28,6 +29,7 @@
 - **住所の自動入力デモ**（[`/autofill`](https://graycow428.sakura.ne.jp/postcode/autofill)）：郵便番号を入力すると、JSON API を使って住所の欄を埋める
   - 1つの郵便番号に複数の町域がある場合は、候補から選べる。候補が多いとき（例: `452-0961` は66件）は、町域の名前かフリガナで絞り込める
   - 住所のフリガナも入力する
+  - 事業所の個別郵便番号（例: `100-8792`）では、番地まで入力する
   - 入力のたびに前の通信を `AbortController` で取り消し、古い結果で上書きされないようにしている
 
 ## API
@@ -56,19 +58,44 @@ curl "https://graycow428.sakura.ne.jp/postcode/api/address?zip=330-0063"
       "town_area_kana": "タカサゴ",
       "full_address_kana": "サイタマケンサイタマシウラワクタカサゴ"
     }
+  ],
+  "offices": []
+}
+```
+
+**事業所の個別郵便番号**（大口事業所・私書箱だけの郵便番号）の場合は、`offices` に入ります。
+`count` は `addresses` の件数です（`offices` を追加する前からの意味を変えないため）。
+
+```json
+{
+  "zip": "100-8792",
+  "count": 0,
+  "addresses": [],
+  "offices": [
+    {
+      "zip": "100-8792",
+      "name": "日本郵便株式会社",
+      "name_kana": "ニツポンユウビンカブシキガイシヤ",
+      "prefecture": "東京都",
+      "municipality": "千代田区",
+      "town_area": "大手町",
+      "street": "２丁目３－１",
+      "full_address": "東京都千代田区大手町２丁目３－１",
+      "is_po_box": false
+    }
   ]
 }
 ```
 
 | ステータス | 内容 |
 |---|---|
-| 200 | 成功。見つからない場合も 200 で `"count": 0`、`"addresses": []` |
+| 200 | 成功。見つからない場合も 200 で `"count": 0`、`"addresses": []`、`"offices": []` |
 | 400 | `zip` が無い、または7桁の数字でない。`{"error_msg": "..."}` |
 | 405 | GET（HEAD）以外のメソッド |
 | 500 | サーバー側のエラー（詳細はサーバーのログにだけ記録する） |
 
 - **CORS**：`Access-Control-Allow-Origin: *` を付けているので、ほかのサイトの JavaScript から `fetch` で使えます。公開データを返すだけで、Cookie などは扱いません
-- **キャッシュ**：郵便番号データは月に1回しか変わらないため、`Cache-Control: public, max-age=86400`（1日）を付けています。エラーの応答はキャッシュさせません
+- **キャッシュ**：`Cache-Control: public, max-age=3600`（1時間）を付けています。データは月に1回しか変わりませんが、長くしすぎると、データの更新や項目の追加がいつまでも届かないため、1時間にしています（以前の1日では、フリガナを追加したときに古い結果が使われ続けました）。エラーの応答はキャッシュさせません
 - 共用のレンタルサーバで動かしているため、大量のリクエストは控えてください
 
 ## 技術スタック
@@ -141,6 +168,14 @@ erDiagram
         INT prefecture_id FK
         VARCHAR(50) name "市区町村"
         INT sort_order "並び順（post_codes の最小 id）"
+    }
+    offices {
+        INT id PK
+        CHAR(7) post_code_noHyphen "事業所の個別郵便番号 例: 1008792"
+        VARCHAR(100) name "事業所名"
+        VARCHAR(100) name_kana "事業所名のフリガナ"
+        VARCHAR(100) street "小字・丁目・番地など"
+        TINYINT is_po_box "1: 私書箱 / 0: 大口事業所"
     }
     prefectures ||--o{ municipalities : "含む"
     prefectures ||..o{ post_codes : "集計元（refresh_masters.sql）"
@@ -265,8 +300,8 @@ http://localhost:8080/address を開き、`330-0063` で検索できれば起動
 
 | コマンド | 内容 |
 |---|---|
-| `make seed-full` | 日本郵便の全国データ（約12万件）をダウンロードして投入する（本番の月次更新と同じ手順） |
-| `make import CSV=…` | 変換済みの CSV を DB に取り込む |
+| `make seed-full` | 日本郵便の全国データ（住所 約12万件・事業所 約2万件）をダウンロードして投入する（本番の月次更新と同じ手順） |
+| `make import CSV=…` | 変換済みの CSV を DB に取り込む（事業所は `OFFICES=1` を付ける） |
 | `make build` | Docker のイメージを作り直す（Dockerfile を変えたとき） |
 | `make lint` | PHP の構文チェック（CI と同じ内容） |
 | `make composer-install` | Composer で PHPUnit などをインストールする（初回のみ） |
@@ -293,7 +328,7 @@ http://localhost:8080/address を開き、`330-0063` で検索できれば起動
 
 ## データの出典
 
-郵便番号データは、[日本郵便株式会社](https://www.post.japanpost.jp/zipcode/download.html)が公開している「住所の郵便番号（1レコード1行、UTF-8形式）」を使用しています。
+郵便番号データは、[日本郵便株式会社](https://www.post.japanpost.jp/zipcode/download.html)が公開している「住所の郵便番号（1レコード1行、UTF-8形式）」と「事業所の個別郵便番号」を使用しています。
 
 ## 作者
 
