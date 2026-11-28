@@ -36,12 +36,14 @@
         <tr>
             <th>郵便番号</th>
             <th>住所</th>
+            <th>フリガナ</th>
         </tr>
 
         <?php foreach ($addresses as $address): ?>
         <tr>
             <td><?=escape($address->postalCode->withHyphen())?></td>
             <td><?=escape($address->fullAddress())?></td>
+            <td><?=escape($address->fullAddressKana())?></td>
         </tr>
         <?php endforeach; ?>
     </table>

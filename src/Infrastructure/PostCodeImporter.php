@@ -26,8 +26,19 @@ final readonly class PostCodeImporter
     /** 1つの INSERT 文で追加する行数 */
     private const ROWS_PER_INSERT = 500;
 
-    /** 列の最大文字数（db/schema.sql と合わせる） */
-    private const MAX_LENGTHS = ['prefecture' => 10, 'municipality' => 50, 'town_area' => 1000];
+    /**
+     * CSV の列（db/ken_all_to_sql.py の COLUMNS と同じ順）と、それぞれの最大文字数（db/schema.sql と合わせる）
+     * 郵便番号（1列目）は、PostalCode で別に検証する
+     */
+    private const COLUMNS = [
+        'post_code_noHyphen' => 7,
+        'prefecture' => 10,
+        'municipality' => 50,
+        'town_area' => 1000,
+        'prefecture_kana' => 20,
+        'municipality_kana' => 100,
+        'town_area_kana' => 2000,
+    ];
 
     /**
      * @param PDO $pdo 書き込みのできる DB 接続
@@ -108,7 +119,7 @@ final readonly class PostCodeImporter
 
     /**
      * CSV を1行ずつ読み、検証した値を返す
-     * @return \Generator<int, array{string, string, string, string}> [郵便番号7桁, 都道府県, 市区町村, 町域]
+     * @return \Generator<int, list<string>> COLUMNS の順の値
      * @throws ImportException 誤りのある行があった場合（何行目かをメッセージに入れる）
      */
     private function readRows(string $csvPath): \Generator
@@ -121,11 +132,12 @@ final readonly class PostCodeImporter
 
         foreach ($file as $index => $columns) {
             $line = (int)$index + 1;
-            if (!is_array($columns) || count($columns) !== 4) {
-                throw new ImportException("{$line} 行目: 列の数が 4 ではありません。");
+            if (!is_array($columns) || count($columns) !== count(self::COLUMNS)) {
+                throw new ImportException("{$line} 行目: 列の数が " . count(self::COLUMNS) . ' ではありません。');
             }
             // SplFileObject が読んだ CSV の値は文字列（null は、列が空のときだけ）
-            [$zip, $prefecture, $municipality, $townArea] = array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $columns);
+            $values = array_values(array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $columns));
+            [$zip, $prefecture, $municipality] = $values;
 
             // 郵便番号は7桁の数字だけを受け付ける（PostalCode で検証し、ハイフンなしの形にそろえる）
             $postalCode = PostalCode::tryFromString($zip);
@@ -135,29 +147,33 @@ final readonly class PostCodeImporter
             if ($prefecture === '' || $municipality === '') {
                 throw new ImportException("{$line} 行目: 都道府県または市区町村が空です。");
             }
-            foreach (['prefecture' => $prefecture, 'municipality' => $municipality, 'town_area' => $townArea] as $name => $value) {
-                if (mb_strlen($value) > self::MAX_LENGTHS[$name]) {
-                    throw new ImportException("{$line} 行目: {$name} が " . self::MAX_LENGTHS[$name] . ' 文字を超えています。');
+            $position = 0;
+            foreach (self::COLUMNS as $name => $maxLength) {
+                if (mb_strlen($values[$position++]) > $maxLength) {
+                    throw new ImportException("{$line} 行目: {$name} が {$maxLength} 文字を超えています。");
                 }
             }
-            yield [$zip, $prefecture, $municipality, $townArea];
+            yield $values;
         }
     }
 
     /**
      * まとめて追加する（1行ずつ INSERT するより、ずっと速い）
-     * @param list<array{string, string, string, string}> $rows
+     * 列は「ハイフンありの郵便番号」と、COLUMNS の列
+     * @param list<list<string>> $rows
      */
     private function insert(array $rows): void
     {
-        $placeholders = implode(', ', array_fill(0, count($rows), '(?, ?, ?, ?, ?)'));
+        $columns = 'post_code, ' . implode(', ', array_keys(self::COLUMNS));
+        $row = '(' . implode(', ', array_fill(0, count(self::COLUMNS) + 1, '?')) . ')';
         $statement = $this->pdo->prepare(
-            'INSERT INTO post_codes (post_code, post_code_noHyphen, prefecture, municipality, town_area) VALUES ' . $placeholders
+            "INSERT INTO post_codes ({$columns}) VALUES " . implode(', ', array_fill(0, count($rows), $row))
         );
 
         $values = [];
-        foreach ($rows as [$zip, $prefecture, $municipality, $townArea]) {
-            array_push($values, substr($zip, 0, 3) . '-' . substr($zip, 3), $zip, $prefecture, $municipality, $townArea);
+        foreach ($rows as $columnValues) {
+            $zip = $columnValues[0];
+            array_push($values, substr($zip, 0, 3) . '-' . substr($zip, 3), ...$columnValues);
         }
         $statement->execute($values);
     }

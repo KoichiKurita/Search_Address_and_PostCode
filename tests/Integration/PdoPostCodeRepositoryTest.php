@@ -8,6 +8,7 @@ use App\Domain\Address;
 use App\Domain\PostalCode;
 use App\Infrastructure\PdoPostCodeRepository;
 use PDO;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\TestDatabase;
 
@@ -135,5 +136,42 @@ final class PdoPostCodeRepositoryTest extends TestCase
         $this->assertSame(['330-0063'], self::postalCodes($this->repository->searchByArea('埼玉県', 'さいたま市浦和区', null, 1, 0)));
         $this->assertSame(['330-0062'], self::postalCodes($this->repository->searchByArea('埼玉県', 'さいたま市浦和区', null, 1, 1)));
         $this->assertSame([], $this->repository->searchByArea('埼玉県', 'さいたま市浦和区', null, 1, 2));
+    }
+
+
+    // ---- フリガナ（#37） -------------------------------------------------------
+
+    public function testFindByPostalCodeReturnsKana(): void
+    {
+        $address = $this->repository->findByPostalCode(PostalCode::fromString('3300063'))[0];
+        $this->assertSame('タカサゴ', $address->townAreaKana);
+        $this->assertSame('サイタマケンサイタマシウラワクタカサゴ', $address->fullAddressKana());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function kanaProvider(): array
+    {
+        return [
+            '全角カタカナ' => ['タカサ'],
+            'ひらがな'     => ['たかさ'],
+            '半角カナ'     => ['ﾀｶｻ'],
+        ];
+    }
+
+    #[DataProvider('kanaProvider')]
+    public function testSearchByAreaWithKana(string $kana): void
+    {
+        // 町名のフリガナでも検索できる（ひらがな・半角カナで入力しても、全角カタカナにそろえて比べる）
+        $addresses = $this->repository->searchByArea('埼玉県', 'さいたま市浦和区', $kana, 50, 0);
+        $this->assertSame(['330-0063'], self::postalCodes($addresses));
+        $this->assertSame(1, $this->repository->countByArea('埼玉県', 'さいたま市浦和区', $kana));
+    }
+
+    public function testKanjiSearchStillWorks(): void
+    {
+        // 漢字の町名での検索は、これまでどおり
+        $this->assertSame(['330-0062'], self::postalCodes($this->repository->searchByArea('埼玉県', 'さいたま市浦和区', '仲', 50, 0)));
     }
 }

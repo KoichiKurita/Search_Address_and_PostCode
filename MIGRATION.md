@@ -67,3 +67,21 @@ define("DB_PASS", "<パスワード>");
 - `config_dummy.php` のハイフン正規表現を JavaScript 記法（`\u{...}`）から PCRE 記法（`\x{...}`）に修正
   （従来は正規表現のコンパイルに失敗し、全角ハイフンが正規化されていなかった）
 - DB エラーの詳細を画面に出さず、サーバーログにのみ記録するよう変更
+
+## DB の変更（マイグレーション）
+
+既存の DB には、`db/migrations/` の SQL を番号順に、1回ずつ実行します（新しく作る DB は `db/schema.sql` に反映済みなので不要）。
+アプリが新しい列を使う前に実行する必要があるので、**その変更を含む PR をマージする前に**、phpMyAdmin の「SQL」タブで実行します。
+
+| ファイル | 内容 | 本番 |
+|---|---|---|
+| `001_widen_town_area.sql` | 町域の列を 1000 文字に広げる | 実行済み |
+| `002_create_masters.sql` | 都道府県・市区町村のマスタテーブル | 実行済み |
+| `003_add_kana.sql` | フリガナの列を追加する（#37） | |
+
+開発環境（Docker）では、次のコマンドで実行できます（`make db-reset` で作り直してもよい）。
+
+```bash
+docker compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < db/migrations/003_add_kana.sql
+```
+

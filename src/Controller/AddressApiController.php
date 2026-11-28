@@ -57,6 +57,11 @@ final readonly class AddressApiController
                 'municipality' => $address->municipality,
                 'town_area' => $address->townArea,
                 'full_address' => $address->fullAddress(),
+                // フリガナ（全角カタカナ。#37）
+                'prefecture_kana' => $address->prefectureKana,
+                'municipality_kana' => $address->municipalityKana,
+                'town_area_kana' => $address->townAreaKana,
+                'full_address_kana' => $address->fullAddressKana(),
             ], $addresses),
         ])
             ->withHeader('Access-Control-Allow-Origin', '*')

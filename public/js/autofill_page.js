@@ -31,7 +31,7 @@ const toSearchable = (text) => text
  * 郵便番号から住所の候補を取得する
  * @param {string} zip 正規化済みの郵便番号
  * @param {AbortSignal} signal 取り消し用のシグナル（新しい入力があったら、前の通信を取り消す）
- * @return {Promise<Array<{zip: string, prefecture: string, municipality: string, town_area: string, full_address: string}>>}
+ * @return {Promise<Array<{zip: string, prefecture: string, municipality: string, town_area: string, full_address: string, full_address_kana: string}>>}
  * @throws {Error} 通信エラー、またはサーバー側でエラーが起きたとき（取り消したときは AbortError）
  */
 const fetchAddresses = async (zip, signal) => {
@@ -58,6 +58,7 @@ const setupAutofill = () => {
         prefecture: document.getElementById('prefecture'),
         municipality: document.getElementById('municipality'),
         town_area: document.getElementById('town_area'),
+        full_address_kana: document.getElementById('address_kana'),     // フリガナ（#37）
     };
     const streetInput = document.getElementById('street');
 
@@ -81,7 +82,8 @@ const setupAutofill = () => {
     /** 住所の欄を埋めて、続きの「番地・建物名」に入力できるようにする */
     const fill = (address) => {
         for (const [name, input] of Object.entries(fields)) {
-            input.value = address[name];
+            // 項目が無い場合（古い形の API の結果がキャッシュに残っている場合など）は、undefined ではなく空にする
+            input.value = address[name] ?? '';
         }
         clearCandidates();
         status.textContent = `${address.full_address} を入力しました。続けて番地を入力してください。`;
@@ -91,8 +93,9 @@ const setupAutofill = () => {
     /** 候補のうち、絞り込みの文字を含むものだけをボタンで並べる */
     const renderCandidates = () => {
         const keyword = toSearchable(filterInput.value.trim());
-        const matched = allCandidates.filter((address) => toSearchable(address.full_address).includes(keyword));
-
+        // 住所（漢字）とフリガナのどちらかに含まれていれば一致とする（「いちば」でも「一番」でも探せる）
+        const matched = allCandidates.filter((address) =>
+            toSearchable(address.full_address + ' ' + (address.full_address_kana ?? '')).includes(keyword));
         const items = matched.map((address) => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -122,7 +125,7 @@ const setupAutofill = () => {
         renderCandidates();
         status.textContent = filterLabel.hidden
             ? `${addresses.length} 件の候補があります。選んでください。`
-            : `${addresses.length} 件の候補があります。町域の名前で絞り込んでから選べます。`;
+            : `${addresses.length} 件の候補があります。町域の名前かフリガナで絞り込んでから選べます。`;
     };
 
     const lookUp = async () => {
