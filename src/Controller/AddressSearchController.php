@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Domain\Address;
+use App\Domain\Office;
 use App\Domain\PostalCode;
 use App\Domain\PostCodeRepository;
 use App\Http\Request;
@@ -39,6 +40,8 @@ final readonly class AddressSearchController
         $postalCode = null;     // 検索した郵便番号（入力画面と、入力エラーのときは null）
         /** @var list<Address> $addresses */
         $addresses = [];
+        /** @var list<Office> $offices 事業所の個別郵便番号（#36） */
+        $offices = [];
         $errorMessage = '';
         $status = 200;
 
@@ -52,7 +55,9 @@ final readonly class AddressSearchController
                 $status = 400;
                 $errorMessage = '郵便番号は7桁の数字で入力してください（例：330-0063）';
             } else {
-                $addresses = ($this->repository)()->findByPostalCode($postalCode);
+                $repository = ($this->repository)();
+                $addresses = $repository->findByPostalCode($postalCode);
+                $offices = $repository->findOfficesByPostalCode($postalCode);
             }
         }
 
@@ -64,6 +69,7 @@ final readonly class AddressSearchController
                 'input' => $input,
                 'postalCode' => $postalCode,
                 'addresses' => $addresses,
+                'offices' => $offices,
                 'errorMessage' => $errorMessage,
             ],
             'js/address_page.js',

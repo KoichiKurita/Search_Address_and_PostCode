@@ -34,6 +34,18 @@ final class TestDatabase
             municipality_kana TEXT NOT NULL DEFAULT "",
             town_area_kana TEXT NOT NULL DEFAULT ""
         )');
+        $pdo->exec('CREATE TABLE offices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_code TEXT NOT NULL,
+            post_code_noHyphen TEXT NOT NULL,
+            name TEXT NOT NULL,
+            name_kana TEXT NOT NULL DEFAULT "",
+            prefecture TEXT NOT NULL,
+            municipality TEXT NOT NULL,
+            town_area TEXT NOT NULL DEFAULT "",
+            street TEXT NOT NULL DEFAULT "",
+            is_po_box INTEGER NOT NULL DEFAULT 0
+        )');
         $pdo->exec('CREATE TABLE prefectures (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
@@ -58,6 +70,11 @@ final class TestDatabase
             ['100-0001', '東京都', '千代田区', '千代田', 'トウキョウト', 'チヨダク', 'チヨダ'],
             ['100-0099', '東京都', '千代田区', '100%_テスト'],
         ]);
+
+        // 事業所の個別郵便番号（#36）
+        $pdo->exec("INSERT INTO offices (post_code, post_code_noHyphen, name, name_kana, prefecture, municipality, town_area, street, is_po_box) VALUES
+            ('100-8798', '1008798', '日本郵便株式会社', 'ニツポンユウビンカブシキガイシヤ', '東京都', '千代田区', '霞が関', '１丁目３－２', 0),
+            ('330-8799', '3308799', 'さいたま中央郵便局私書箱', 'サイタマチユウオウユウビンキヨクシシヨバコ', '埼玉県', 'さいたま市大宮区', '吉敷町', '１丁目６８', 1)");
 
         self::refreshMasters($pdo);
         return $pdo;

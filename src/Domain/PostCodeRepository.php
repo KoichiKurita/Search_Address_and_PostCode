@@ -32,6 +32,12 @@ interface PostCodeRepository
     public function findByPostalCode(PostalCode $postalCode): array;
 
     /**
+     * 郵便番号から、事業所の個別郵便番号を検索する（#36）
+     * @return list<Office>
+     */
+    public function findOfficesByPostalCode(PostalCode $postalCode): array;
+
+    /**
      * 住所（都道府県・市区町村・町名の部分一致）に一致する件数
      * @param string|null $townArea 町名（null のときは町名で絞り込まない）
      */

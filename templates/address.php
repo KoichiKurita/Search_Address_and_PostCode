@@ -5,6 +5,7 @@
  * @var string $input 入力された郵便番号（正規化済み。入力欄に残す）
  * @var \App\Domain\PostalCode|null $postalCode 検索した郵便番号（入力画面と、入力エラーのときは null）
  * @var list<\App\Domain\Address> $addresses 検索結果
+ * @var list<\App\Domain\Office> $offices 検索結果（事業所の個別郵便番号。#36）
  * @var string $errorMessage 入力エラーのメッセージ（空ならエラーなし）
  */
 ?>
@@ -31,22 +32,46 @@
     <hr class="divider">
 
     <!-- 見出しは、入力の形（ハイフンの有無）に関係なく「330-0063」の形にそろえる -->
-    <h1 id="result_heading">郵便番号「<?=escape($postalCode->withHyphen())?>」の住所の検索結果：<?=count($addresses)?>件</h1>
-    <table class="result-table">
-        <tr>
-            <th>郵便番号</th>
-            <th>住所</th>
-            <th>フリガナ</th>
-        </tr>
+    <h1 id="result_heading">郵便番号「<?=escape($postalCode->withHyphen())?>」の住所の検索結果：<?=count($addresses) + count($offices)?>件</h1>
+    <?php if ($offices === [] || $addresses !== []): ?>
+        <table class="result-table">
+            <tr>
+                <th>郵便番号</th>
+                <th>住所</th>
+                <th>フリガナ</th>
+            </tr>
 
-        <?php foreach ($addresses as $address): ?>
-        <tr>
-            <td><?=escape($address->postalCode->withHyphen())?></td>
-            <td><?=escape($address->fullAddress())?></td>
-            <td><?=escape($address->fullAddressKana())?></td>
-        </tr>
-        <?php endforeach; ?>
-    </table>
+            <?php foreach ($addresses as $address): ?>
+            <tr>
+                <td><?=escape($address->postalCode->withHyphen())?></td>
+                <td><?=escape($address->fullAddress())?></td>
+                <td><?=escape($address->fullAddressKana())?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    <?php endif; ?>
+
+    <?php if ($offices !== []): ?>
+        <!-- 事業所の個別郵便番号（大口事業所・私書箱だけの郵便番号）の場合 -->
+        <p class="notice">この郵便番号は、事業所の個別郵便番号です。郵便番号だけで、この事業所に届きます。</p>
+        <table class="result-table">
+            <tr>
+                <th>郵便番号</th>
+                <th>事業所名</th>
+                <th>住所</th>
+                <th>種別</th>
+            </tr>
+
+            <?php foreach ($offices as $office): ?>
+            <tr>
+                <td><?=escape($office->postalCode->withHyphen())?></td>
+                <td><?=escape($office->name)?><br><small><?=escape($office->nameKana)?></small></td>
+                <td><?=escape($office->fullAddress())?></td>
+                <td><?=$office->isPoBox ? '私書箱' : '大口事業所'?></td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    <?php endif; ?>
 
     <a href="address">住所検索トップへ戻る</a>
 <?php endif; ?>

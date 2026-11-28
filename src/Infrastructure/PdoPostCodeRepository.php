@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure;
 
 use App\Domain\Address;
+use App\Domain\Office;
 use App\Domain\PostalCode;
 use App\Domain\PostCodeRepository;
 use PDO;
@@ -57,6 +58,32 @@ final readonly class PdoPostCodeRepository implements PostCodeRepository
         $statement->execute();
 
         return self::toAddresses($statement);
+    }
+
+    public function findOfficesByPostalCode(PostalCode $postalCode): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT post_code, name, name_kana, prefecture, municipality, town_area, street, is_po_box'
+            . ' FROM offices WHERE post_code_noHyphen = :post_code ORDER BY id'
+        );
+        $statement->bindValue(':post_code', $postalCode->digits(), PDO::PARAM_STR);
+        $statement->execute();
+
+        $offices = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $offices[] = new Office(
+                PostalCode::fromString(self::column($row, 'post_code')),
+                self::column($row, 'name'),
+                self::column($row, 'name_kana'),
+                self::column($row, 'prefecture'),
+                self::column($row, 'municipality'),
+                self::column($row, 'town_area'),
+                self::column($row, 'street'),
+                // MySQL は数値、SQLite は数値か文字列で返すので、どちらでも 1 なら私書箱とする
+                is_array($row) && in_array($row['is_po_box'] ?? null, [1, '1'], true),
+            );
+        }
+        return $offices;
     }
 
     public function countByArea(string $prefecture, string $municipality, ?string $townArea = null): int

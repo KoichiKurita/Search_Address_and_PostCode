@@ -77,11 +77,12 @@ define("DB_PASS", "<パスワード>");
 |---|---|---|
 | `001_widen_town_area.sql` | 町域の列を 1000 文字に広げる | 実行済み |
 | `002_create_masters.sql` | 都道府県・市区町村のマスタテーブル | 実行済み |
-| `003_add_kana.sql` | フリガナの列を追加する（#37） | |
+| `003_add_kana.sql` | フリガナの列を追加する（#37） | 実行済み |
+| `004_create_offices.sql` | 事業所の個別郵便番号のテーブル（#36） | |
 
 開発環境（Docker）では、次のコマンドで実行できます（`make db-reset` で作り直してもよい）。
 
 ```bash
-docker compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < db/migrations/003_add_kana.sql
+docker compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < db/migrations/004_create_offices.sql
 ```
 

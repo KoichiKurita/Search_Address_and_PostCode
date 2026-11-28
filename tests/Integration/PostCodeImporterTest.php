@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
+use App\Domain\PostalCode;
+use App\Infrastructure\ImportDataset;
 use App\Infrastructure\ImportException;
 use App\Infrastructure\PdoPostCodeRepository;
 use App\Infrastructure\PostCodeImporter;
@@ -48,11 +50,12 @@ final class PostCodeImporterTest extends TestCase
     }
 
     /**
-     * テストでは件数の下限を小さくする（本番は 100,000 件）
+     * 住所の郵便番号の取り込み（テストでは件数の下限を小さくする。本番は 100,000 件）
      */
     private function importer(int $minimumRows = 1): PostCodeImporter
     {
-        return new PostCodeImporter($this->pdo, dirname(__DIR__, 2) . '/db/refresh_masters.sql', $minimumRows);
+        $dataset = ImportDataset::addresses(dirname(__DIR__, 2) . '/db')->withMinimumRows($minimumRows);
+        return new PostCodeImporter($this->pdo, $dataset);
     }
 
     private function rowCount(): int
@@ -152,7 +155,7 @@ final class PostCodeImporterTest extends TestCase
             '郵便番号が6桁'          => [['330006', '埼玉県', 'さいたま市浦和区', '', '', '', ''], '郵便番号が7桁の数字ではありません'],
             '郵便番号にハイフン'     => [['330-0063', '埼玉県', 'さいたま市浦和区', '', '', '', ''], '郵便番号が7桁の数字ではありません'],
             '列が足りない（フリガナなしの古い形式）' => [['3300063', '埼玉県', 'さいたま市浦和区', ''], '列の数が 7 ではありません'],
-            '市区町村が空'           => [['3300063', '埼玉県', '', '', '', '', ''], '都道府県または市区町村が空です'],
+            '市区町村が空'           => [['3300063', '埼玉県', '', '', '', '', ''], 'municipality が空です'],
             '町域が長すぎる'         => [['3300063', '埼玉県', 'さいたま市浦和区', str_repeat('あ', 1001), '', '', ''], 'town_area が 1000 文字を超えています'],
             '町域のフリガナが長すぎる' => [['3300063', '埼玉県', 'さいたま市浦和区', '', '', '', str_repeat('ア', 2001)], 'town_area_kana が 2000 文字を超えています'],
         ];
@@ -184,5 +187,54 @@ final class PostCodeImporterTest extends TestCase
         $this->expectException(ImportException::class);
         $this->expectExceptionMessage('ファイルがありません');
         $this->importer()->import('/nonexistent/post_codes.csv');
+    }
+
+    // ---- 事業所の個別郵便番号（#36） -------------------------------------------
+
+    private function officeImporter(): PostCodeImporter
+    {
+        return new PostCodeImporter($this->pdo, ImportDataset::offices()->withMinimumRows(1));
+    }
+
+    public function testImportOffices(): void
+    {
+        // 同じ取り込みの処理で、別のテーブル（offices）を入れ替えられる
+        $this->writeCsv([
+            ['1008798', '日本郵便株式会社', 'ニツポンユウビンカブシキガイシヤ', '東京都', '千代田区', '霞が関', '１丁目３－２', '0'],
+            ['1028688', '千代田区役所', 'チヨダクヤクシヨ', '東京都', '千代田区', '九段南', '１丁目２－１', '0'],
+        ]);
+
+        $result = $this->officeImporter()->import($this->csvPath);
+
+        $this->assertSame(2, $result->before);       // TestDatabase の2件
+        $this->assertSame(2, $result->after);
+        $this->assertSame(['1028688'], $result->added);
+        $this->assertSame(['3308799'], $result->removed);
+        $offices = (new PdoPostCodeRepository($this->pdo))->findOfficesByPostalCode(PostalCode::fromString('1028688'));
+        $this->assertSame('千代田区役所', $offices[0]->name);
+        $this->assertSame(6, $this->rowCount());     // 住所の郵便番号（post_codes）は変わらない
+    }
+
+    public function testOfficeWithInvalidTypeIsRejected(): void
+    {
+        // 種別は 0（大口事業所）か 1（私書箱）だけ
+        $this->writeCsv([
+            ['1008798', '日本郵便株式会社', '', '東京都', '千代田区', '霞が関', '', '2'],
+        ]);
+
+        $this->expectException(ImportException::class);
+        $this->expectExceptionMessage('1 行目: is_po_box の値が正しくありません（2）');
+        $this->officeImporter()->import($this->csvPath);
+    }
+
+    public function testOfficeWithoutNameIsRejected(): void
+    {
+        $this->writeCsv([
+            ['1008798', '', '', '東京都', '千代田区', '霞が関', '', '0'],
+        ]);
+
+        $this->expectException(ImportException::class);
+        $this->expectExceptionMessage('1 行目: name が空です');
+        $this->officeImporter()->import($this->csvPath);
     }
 }

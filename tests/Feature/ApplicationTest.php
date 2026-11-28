@@ -82,6 +82,18 @@ final class ApplicationTest extends TestCase
         $this->assertStringContainsString('<base href="/postcode/">', $response->body);
     }
 
+    public function testAddressSearchShowsOffice(): void
+    {
+        // 事業所の個別郵便番号は、事業所名と番地までの住所を表示する（#36）
+        $response = $this->request('GET', 'address', ['post-code' => '330-8799']);
+
+        $this->assertSame(200, $response->status);
+        $this->assertStringContainsString('の住所の検索結果：1件', $response->body);
+        $this->assertStringContainsString('この郵便番号は、事業所の個別郵便番号です。', $response->body);
+        $this->assertStringContainsString('さいたま中央郵便局私書箱', $response->body);
+        $this->assertStringContainsString('<td>私書箱</td>', $response->body);
+    }
+
     public function testAddressSearchWithInvalidPostCodeReturns400(): void
     {
         $response = $this->request('GET', 'address', ['post-code' => '<script>']);
@@ -207,16 +219,39 @@ final class ApplicationTest extends TestCase
                 'town_area_kana' => 'タカサゴ',
                 'full_address_kana' => 'サイタマケンサイタマシウラワクタカサゴ',
             ]],
+            'offices' => [],
         ], json_decode($response->body, true));
+    }
+
+    public function testAddressApiReturnsOffice(): void
+    {
+        // 事業所の個別郵便番号は offices に入る。count は addresses の件数のまま（#36）
+        $response = $this->request('GET', 'api/address', ['zip' => '1008798']);
+        $data = json_decode($response->body, true);
+
+        $this->assertSame(200, $response->status);
+        $this->assertIsArray($data);
+        $this->assertSame(0, $data['count']);
+        $this->assertSame([[
+            'zip' => '100-8798',
+            'name' => '日本郵便株式会社',
+            'name_kana' => 'ニツポンユウビンカブシキガイシヤ',
+            'prefecture' => '東京都',
+            'municipality' => '千代田区',
+            'town_area' => '霞が関',
+            'street' => '１丁目３－２',
+            'full_address' => '東京都千代田区霞が関１丁目３－２',
+            'is_po_box' => false,
+        ]], $data['offices']);
     }
 
     public function testAddressApiAllowsCorsAndCache(): void
     {
-        // ほかのサイトの JavaScript からも使え、ブラウザに1日キャッシュさせる
+        // ほかのサイトの JavaScript からも使え、ブラウザに1時間キャッシュさせる
         $response = $this->request('GET', 'api/address', ['zip' => '3300063']);
 
         $this->assertSame('*', $response->headers['Access-Control-Allow-Origin']);
-        $this->assertSame('public, max-age=86400', $response->headers['Cache-Control']);
+        $this->assertSame('public, max-age=3600', $response->headers['Cache-Control']);
     }
 
     public function testAddressApiNotFoundReturnsEmptyList(): void
@@ -225,7 +260,7 @@ final class ApplicationTest extends TestCase
         $response = $this->request('GET', 'api/address', ['zip' => '999-9999']);
 
         $this->assertSame(200, $response->status);
-        $this->assertSame('{"zip":"999-9999","count":0,"addresses":[]}', $response->body);
+        $this->assertSame('{"zip":"999-9999","count":0,"addresses":[],"offices":[]}', $response->body);
     }
 
     /**

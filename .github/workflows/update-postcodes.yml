@@ -3,10 +3,10 @@
 #
 #   GitHub Actions                                     さくらのレンタルサーバ
 #   ─────────────────────────────────────────          ────────────────────────────────────────
-#   1. utf_ken_all.zip をダウンロード
-#   2. db/ken_all_to_sql.py で CSV に変換（注記の除去・長さの確認）
-#   3. rsync で CSV を送る ───────────────────────▶  ~/apps/postcode/import/post_codes.csv
-#   4. SSH で取り込みコマンドを実行 ──────────────▶  php current/bin/import-postcodes.php
+#   1. utf_ken_all.zip（住所）と jigyosyo.zip（事業所。#36）をダウンロード
+#   2. db/ken_all_to_sql.py・db/jigyosyo_to_csv.py で CSV に変換（注記の除去・長さの確認）
+#   3. rsync で CSV を送る ───────────────────────▶  ~/apps/postcode/import/{post_codes,offices}.csv
+#   4. SSH で取り込みコマンドを実行 ──────────────▶  php current/bin/import-postcodes.php [--offices]
 #                                                         （検証 → 1つのトランザクションで全件入れ替え）
 #   5. API で住所を検索できるかを確認
 #
@@ -41,6 +41,9 @@ jobs:
       # 日本郵便「住所の郵便番号（1レコード1行、UTF-8形式）」全国一括データ（現在の URL → 移転前の URL の順に試す）
       KEN_ALL_URL: https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
       KEN_ALL_URL_ALT: https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip
+      # 日本郵便「事業所の個別郵便番号」全国一括データ（#36。Shift_JIS）
+      JIGYOSYO_URL: https://www.post.japanpost.jp/service/search/zipcode/download/office/zip/jigyosyo.zip
+      JIGYOSYO_URL_ALT: https://www.post.japanpost.jp/zipcode/dl/jigyosyo/zip/jigyosyo.zip
     steps:
       - uses: actions/checkout@v5
 
@@ -49,10 +52,16 @@ jobs:
           curl -fsSL --retry 3 --retry-delay 10 -o utf_ken_all.zip "$KEN_ALL_URL" \
             || curl -fsSL --retry 3 --retry-delay 10 -o utf_ken_all.zip "$KEN_ALL_URL_ALT"
           unzip -o -q utf_ken_all.zip
-          ls -l utf_ken_all.csv
+          curl -fsSL --retry 3 --retry-delay 10 -o jigyosyo.zip "$JIGYOSYO_URL" \
+            || curl -fsSL --retry 3 --retry-delay 10 -o jigyosyo.zip "$JIGYOSYO_URL_ALT"
+          # zip の中のファイル名は大文字（JIGYOSYO.CSV）のことがあるので、名前に頼らず中身を取り出す
+          unzip -p jigyosyo.zip > jigyosyo.csv
+          ls -l utf_ken_all.csv jigyosyo.csv
 
       - name: CSV に変換（注記の除去・町域の長さの確認）
-        run: python3 db/ken_all_to_sql.py utf_ken_all.csv post_codes.csv --format csv
+        run: |
+          python3 db/ken_all_to_sql.py utf_ken_all.csv post_codes.csv --format csv
+          python3 db/jigyosyo_to_csv.py jigyosyo.csv offices.csv
 
       - uses: ./.github/actions/setup-ssh
         with:
@@ -65,14 +74,19 @@ jobs:
       - name: CSV をサーバーに送る
         run: |
           ssh deploy-target "mkdir -p '$APP_DIR/import'"
-          rsync -tz --chmod=F600 post_codes.csv "deploy-target:$APP_DIR/import/post_codes.csv"
+          rsync -tz --chmod=F600 post_codes.csv offices.csv "deploy-target:$APP_DIR/import/"
 
-      - name: DB に取り込む
+      - name: DB に取り込む（住所の郵便番号）
         run: ssh deploy-target "'$PHP_CLI' '$APP_DIR/current/bin/import-postcodes.php' '$APP_DIR/import/post_codes.csv'"
+
+      - name: DB に取り込む（事業所の個別郵便番号）
+        run: ssh deploy-target "'$PHP_CLI' '$APP_DIR/current/bin/import-postcodes.php' --offices '$APP_DIR/import/offices.csv'"
 
       - name: 取り込んだデータで検索できるかを確認
         run: |
           curl -fsS --max-time 10 "$APP_URL/api/address?zip=3300063" | grep -q '"count":1'
+          # 日本郵便株式会社（東京都千代田区大手町）の個別郵便番号で、事業所が返るか
+          curl -fsS --max-time 10 "$APP_URL/api/address?zip=1008792" | grep -q '"offices":\[{'
           echo "OK: $APP_URL"
 
       - name: 後片付け（秘密鍵を削除）
