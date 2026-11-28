@@ -7,12 +7,11 @@ declare(strict_types=1);
  * 作成者：栗田幸一
  * 作成日：2026.11.27
  *
- * DB や画面に依存しない関数と定数（入力の正規化・検証・エスケープ）
+ * DB や画面に依存しない関数と定数（入力の取り出し・エスケープ・ページングの計算など）
+ * 郵便番号の正規化・検証は App\Domain\PostalCode が行う
  * 入力と出力だけで結果が決まる「純粋な関数」なので、PHPUnit で単体テストしやすい
  * bootstrap.php とテスト（tests/bootstrap.php）の両方から読み込む
  */
-
-use App\Domain\PostalCode;
 
 /**
  * 町名の入力の最大文字数（これより長い入力は不正な値として扱う）
@@ -36,28 +35,6 @@ function query_string(array $query, string $name): string
 {
     $value = $query[$name] ?? '';
     return is_string($value) ? $value : '';
-}
-
-/**
- * 入力された郵便番号を正規化する（App\Domain\PostalCode::normalize() と同じ）
- * 例: 「３３０ー００６３」→「330-0063」
- * @param string $value 入力された郵便番号
- * @return string 正規化した郵便番号
- */
-function normalize_post_code(string $value): string
-{
-    return PostalCode::normalize($value);
-}
-
-
-/**
- * 郵便番号の書式が正しいかを判定する（App\Domain\PostalCode::isValidFormat() と同じ）
- * @param string $post_code 正規化済みの郵便番号
- * @return bool 正しい書式なら true
- */
-function is_valid_post_code(string $post_code): bool
-{
-    return PostalCode::isValidFormat($post_code);
 }
 
 

@@ -46,6 +46,28 @@ final class RequestTest extends TestCase
         $this->assertFalse($request->hasQuery('page'));
     }
 
+    /**
+     * @return array<string, array{array<mixed>, string}> [クエリパラメータ, 期待する結果]
+     */
+    public static function queryStringProvider(): array
+    {
+        return [
+            '文字列はそのまま'                 => [['post-code' => '330-0063'], '330-0063'],
+            'パラメータが無い'                 => [[], ''],
+            '配列（?post-code[]=1）は空文字'   => [['post-code' => ['1']], ''],
+        ];
+    }
+
+    /**
+     * クエリパラメータから文字列を取り出す関数 query_string()（Request::query() の中で使う）
+     * @param array<mixed> $query
+     */
+    #[DataProvider('queryStringProvider')]
+    public function testQueryString(array $query, string $expected): void
+    {
+        $this->assertSame($expected, query_string($query, 'post-code'));
+    }
+
     public function testUrl(): void
     {
         $request = new Request('GET', 'address', [], '', '/postcode');
