@@ -2,18 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit;
+namespace Tests\Unit\Domain;
 
+use App\Domain\PostalCode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * 郵便番号の正規化（normalize_post_code）と書式チェック（is_valid_post_code）のテスト
+ * 郵便番号の正規化（PostalCode::normalize）と書式チェック（PostalCode::isValidFormat）のテスト
  *
  * データプロバイダ（#[DataProvider]）を使い、「入力」と「期待する結果」の組み合わせを表のように並べて、
  * 同じテストを何通りもの入力で実行する。どの組み合わせで失敗したかは、配列のキー（日本語の説明）で表示される。
  */
-final class PostCodeTest extends TestCase
+final class PostalCodeNormalizeTest extends TestCase
 {
     /**
      * @return array<string, array{string, string}> [入力, 期待する結果]
@@ -36,7 +37,7 @@ final class PostCodeTest extends TestCase
     #[DataProvider('normalizeProvider')]
     public function testNormalizePostCode(string $input, string $expected): void
     {
-        $this->assertSame($expected, normalize_post_code($input));
+        $this->assertSame($expected, PostalCode::normalize($input));
     }
 
     /**
@@ -53,7 +54,7 @@ final class PostCodeTest extends TestCase
     #[DataProvider('validProvider')]
     public function testValidPostCode(string $postCode): void
     {
-        $this->assertTrue(is_valid_post_code($postCode));
+        $this->assertTrue(PostalCode::isValidFormat($postCode));
     }
 
     /**
@@ -76,33 +77,12 @@ final class PostCodeTest extends TestCase
     #[DataProvider('invalidProvider')]
     public function testInvalidPostCode(string $postCode): void
     {
-        $this->assertFalse(is_valid_post_code($postCode));
-    }
-
-    /**
-     * @return array<string, array{array<mixed>, string}> [クエリパラメータ, 期待する結果]
-     */
-    public static function queryStringProvider(): array
-    {
-        return [
-            '文字列はそのまま'                 => [['post-code' => '330-0063'], '330-0063'],
-            'パラメータが無い'                 => [[], ''],
-            '配列（?post-code[]=1）は空文字'   => [['post-code' => ['1']], ''],
-        ];
-    }
-
-    /**
-     * @param array<mixed> $query
-     */
-    #[DataProvider('queryStringProvider')]
-    public function testQueryString(array $query, string $expected): void
-    {
-        $this->assertSame($expected, query_string($query, 'post-code'));
+        $this->assertFalse(PostalCode::isValidFormat($postCode));
     }
 
     public function testNormalizedFullWidthInputBecomesValid(): void
     {
         // 画面での使い方と同じ順番（正規化 → 書式チェック）で、全角の入力が検索できる形になることを確認する
-        $this->assertTrue(is_valid_post_code(normalize_post_code('３３０ー００６３')));
+        $this->assertTrue(PostalCode::isValidFormat(PostalCode::normalize('３３０ー００６３')));
     }
 }
