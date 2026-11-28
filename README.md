@@ -20,12 +20,14 @@
 - **住所検索**：郵便番号から住所を検索する
   - `330-0063`・`3300063`・`330ー0063`（長音記号）・`３３０－００６３`（全角）など、入力の揺れを吸収する
 - **郵便番号検索**：都道府県・市区町村・町名から郵便番号を検索する
+  - 町名は漢字でもフリガナでも検索できる（`たかさご`・`ﾀｶｻｺﾞ` のように、ひらがな・半角カナでもよい）
   - 都道府県を選ぶと、市区町村の選択肢を非同期で読み込む
   - 町名で見つからない場合は、市区町村全体の結果を、そのことを知らせたうえで表示する
 - 検索条件を結果画面に残すので、続けて検索できる
 - **JSON API**：郵便番号から住所を JSON で返す（ほかのサイトの JavaScript からも使える）
 - **住所の自動入力デモ**（[`/autofill`](https://graycow428.sakura.ne.jp/postcode/autofill)）：郵便番号を入力すると、JSON API を使って住所の欄を埋める
-  - 1つの郵便番号に複数の町域がある場合は、候補から選べる
+  - 1つの郵便番号に複数の町域がある場合は、候補から選べる。候補が多いとき（例: `452-0961` は66件）は、町域の名前かフリガナで絞り込める
+  - 住所のフリガナも入力する
   - 入力のたびに前の通信を `AbortController` で取り消し、古い結果で上書きされないようにしている
 
 ## API
@@ -48,7 +50,11 @@ curl "https://graycow428.sakura.ne.jp/postcode/api/address?zip=330-0063"
       "prefecture": "埼玉県",
       "municipality": "さいたま市浦和区",
       "town_area": "高砂",
-      "full_address": "埼玉県さいたま市浦和区高砂"
+      "full_address": "埼玉県さいたま市浦和区高砂",
+      "prefecture_kana": "サイタマケン",
+      "municipality_kana": "サイタマシウラワク",
+      "town_area_kana": "タカサゴ",
+      "full_address_kana": "サイタマケンサイタマシウラワクタカサゴ"
     }
   ]
 }
@@ -121,6 +127,9 @@ erDiagram
         VARCHAR(10) prefecture "都道府県"
         VARCHAR(50) municipality "市区町村"
         VARCHAR(1000) town_area "町域（最長297文字のものがある）"
+        VARCHAR(20) prefecture_kana "都道府県のフリガナ"
+        VARCHAR(100) municipality_kana "市区町村のフリガナ"
+        VARCHAR(2000) town_area_kana "町域のフリガナ"
     }
     prefectures {
         INT id PK
@@ -280,6 +289,7 @@ http://localhost:8080/address を開き、`330-0063` で検索できれば起動
 - **Phase 2**：サーバー側での入力値の検証、セキュリティヘッダ、DB ユーザーの最小権限化
 - **Phase 3**：Composer、PHPUnit、PHPStan の導入と CI への組み込み、都道府県マスタによる高速化
 - **Phase 4**：レイヤー分離（Repository・値オブジェクト）、JSON API、郵便番号データの月次自動更新
+- **Phase 5**：フリガナでの検索、事業所の個別郵便番号、自動入力デモの改善
 
 ## データの出典
 

@@ -17,6 +17,9 @@ final readonly class Address
         public string $prefecture,
         public string $municipality,
         public string $townArea,
+        public string $prefectureKana = '',
+        public string $municipalityKana = '',
+        public string $townAreaKana = '',
     ) {
     }
 
@@ -26,5 +29,14 @@ final readonly class Address
     public function fullAddress(): string
     {
         return $this->prefecture . $this->municipality . $this->townArea;
+    }
+
+
+    /**
+     * 住所のフリガナ（例: "サイタマケンサイタマシウラワクタカサゴ"）
+     */
+    public function fullAddressKana(): string
+    {
+        return $this->prefectureKana . $this->municipalityKana . $this->townAreaKana;
     }
 }

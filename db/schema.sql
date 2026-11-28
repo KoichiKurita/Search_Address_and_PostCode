@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS post_codes (
     -- 町域は、番地や通り名を列挙した長いものがある（最長: 鹿児島県鹿児島市「川上町（３６４９、…）」の297文字）
     -- VARCHAR の長さは「文字数」なので、余裕をもって1000文字にしている（変換スクリプトでも長さを事前に確認する）
     town_area          VARCHAR(1000) NOT NULL DEFAULT '' COMMENT '町域',
+    -- フリガナ（日本郵便のデータは全角カタカナ）。町域のフリガナは町域より長くなるので、2倍の長さにしている
+    prefecture_kana    VARCHAR(20)   NOT NULL DEFAULT '' COMMENT '都道府県のフリガナ',
+    municipality_kana  VARCHAR(100)  NOT NULL DEFAULT '' COMMENT '市区町村のフリガナ',
+    town_area_kana     VARCHAR(2000) NOT NULL DEFAULT '' COMMENT '町域のフリガナ',
     PRIMARY KEY (id),
     KEY idx_post_code (post_code),
     KEY idx_post_code_nohyphen (post_code_noHyphen),

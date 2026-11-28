@@ -77,6 +77,19 @@ function escape_like(string $value): string
 
 
 /**
+ * ひらがな・半角カタカナを、全角カタカナにする（フリガナで検索するときに、入力の揺れをそろえる）
+ * 例: 「たかさご」「ﾀｶｻｺﾞ」→「タカサゴ」
+ *   K: 半角カタカナ → 全角カタカナ / V: 濁点・半濁点を1文字にまとめる（ｺﾞ → ゴ） / C: ひらがな → カタカナ
+ * @param string $value 入力された文字列
+ * @return string 全角カタカナにそろえた文字列（漢字・英数字はそのまま）
+ */
+function to_katakana(string $value): string
+{
+    return mb_convert_kana($value, 'KVC', 'UTF-8');
+}
+
+
+/**
  * HTMLエスケープする関数（画面に出力する直前に使う）
  * @param mixed $value 出力する値（数値なども文字列にしてからエスケープする）
  * @return string エスケープ処理した文字列を返します。

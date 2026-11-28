@@ -43,7 +43,7 @@
         </div>
 
         <div class="address-input">
-            <label for="town_area">町名：
+            <label for="town_area">町名（漢字またはフリガナ）：
                 <!-- maxlength はブラウザ側の制限。サーバー側でも同じ文字数で検証している -->
                 <input type="text" name="town_area" id="town_area" value="<?=escape($townArea)?>" maxlength="<?=TOWN_AREA_MAX_LENGTH?>">
             </label>
@@ -76,6 +76,7 @@
             <th>都道府県</th>
             <th>市区町村</th>
             <th>町名</th>
+            <th>町名のフリガナ</th>
         </tr>
 
         <?php foreach ($addresses as $address): ?>
@@ -84,6 +85,7 @@
             <td><?=escape($address->prefecture)?></td>
             <td><?=escape($address->municipality)?></td>
             <td><?=escape($address->townArea)?></td>
+            <td><?=escape($address->townAreaKana)?></td>
         </tr>
         <?php endforeach; ?>
     </table>

@@ -115,6 +115,16 @@ final class ApplicationTest extends TestCase
         $this->assertStringContainsString('<option value="埼玉県" selected>', $response->body);
     }
 
+    public function testPostCodeSearchWithKana(): void
+    {
+        // 町名はフリガナ（ひらがなでもよい）でも検索でき、結果の表にもフリガナを出す（#37）
+        $response = $this->request('GET', 'postcode', ['prefecture' => '埼玉県', 'municipality' => 'さいたま市浦和区', 'town_area' => 'たかさ']);
+
+        $this->assertSame(200, $response->status);
+        $this->assertStringContainsString('検索結果：1件', $response->body);
+        $this->assertStringContainsString('<td>タカサゴ</td>', $response->body);
+    }
+
     public function testPostCodeSearchFallsBackToMunicipality(): void
     {
         // 町名で見つからなければ、市区町村全体の結果を、そのことを知らせて表示する
@@ -192,6 +202,10 @@ final class ApplicationTest extends TestCase
                 'municipality' => 'さいたま市浦和区',
                 'town_area' => '高砂',
                 'full_address' => '埼玉県さいたま市浦和区高砂',
+                'prefecture_kana' => 'サイタマケン',
+                'municipality_kana' => 'サイタマシウラワク',
+                'town_area_kana' => 'タカサゴ',
+                'full_address_kana' => 'サイタマケンサイタマシウラワクタカサゴ',
             ]],
         ], json_decode($response->body, true));
     }

@@ -18,9 +18,9 @@
     <!-- 検索中・見つからない・候補が複数、などの状態を表示する（role="status" で読み上げソフトにも伝わる） -->
     <p id="autofill-status" role="status"></p>
 
-    <!-- 候補が多いときだけ、町域の名前で絞り込む入力欄を出す（例: 452-0961 は66件） -->
+    <!-- 候補が多いときだけ、町域の名前（漢字またはフリガナ）で絞り込む入力欄を出す（例: 452-0961 は66件） -->
     <label for="candidate-filter" id="candidate-filter-label" hidden>候補を絞り込む：
-        <input type="search" id="candidate-filter" placeholder="町域の名前の一部（例：一番）" aria-describedby="candidate-count">
+        <input type="search" id="candidate-filter" placeholder="町域の名前かフリガナの一部（例：一番、いちば）" aria-describedby="candidate-count">
     </label>
     <p id="candidate-count" class="candidate-count" aria-live="polite" hidden></p>
 
@@ -35,6 +35,9 @@
     </label>
     <label for="town_area">町域：
         <input type="text" id="town_area" name="town_area" autocomplete="address-line1">
+    </label>
+    <label for="address_kana">住所のフリガナ（町域まで）：
+        <input type="text" id="address_kana" name="address_kana">
     </label>
     <label for="street">番地・建物名：
         <input type="text" id="street" name="street" autocomplete="address-line2" placeholder="例：1-2-3 〇〇マンション101">

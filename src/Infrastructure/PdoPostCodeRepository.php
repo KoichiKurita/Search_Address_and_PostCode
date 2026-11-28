@@ -20,7 +20,8 @@ use UnexpectedValueException;
  */
 final readonly class PdoPostCodeRepository implements PostCodeRepository
 {
-    private const SELECT_COLUMNS = 'SELECT post_code, prefecture, municipality, town_area FROM post_codes';
+    private const SELECT_COLUMNS = 'SELECT post_code, prefecture, municipality, town_area,'
+        . ' prefecture_kana, municipality_kana, town_area_kana FROM post_codes';
 
     public function __construct(private PDO $pdo)
     {
@@ -91,7 +92,9 @@ final readonly class PdoPostCodeRepository implements PostCodeRepository
         $condition = 'prefecture = :prefecture AND municipality = :municipality';
         if ($townArea !== null) {
             // 入力に含まれる % や _ をワイルドカードとして扱わないよう、escape_like() でエスケープしてから部分一致にする
-            $condition .= " AND town_area LIKE :town_area ESCAPE '!'";
+            // 町名（漢字）とフリガナのどちらかに一致すればよい（#37）
+            // ※ プリペアドステートメントのエミュレーションを無効にしているので、同じ名前のパラメータは2回使えない
+            $condition .= " AND (town_area LIKE :town_area ESCAPE '!' OR town_area_kana LIKE :town_area_kana ESCAPE '!')";
         }
         return $condition;
     }
@@ -105,6 +108,8 @@ final readonly class PdoPostCodeRepository implements PostCodeRepository
         $statement->bindValue(':municipality', $municipality, PDO::PARAM_STR);
         if ($townArea !== null) {
             $statement->bindValue(':town_area', '%' . escape_like($townArea) . '%', PDO::PARAM_STR);
+            // フリガナは全角カタカナで入っているので、ひらがな・半角カナで入力されても一致するようにそろえる
+            $statement->bindValue(':town_area_kana', '%' . escape_like(to_katakana($townArea)) . '%', PDO::PARAM_STR);
         }
     }
 
@@ -138,6 +143,9 @@ final readonly class PdoPostCodeRepository implements PostCodeRepository
                 self::column($row, 'prefecture'),
                 self::column($row, 'municipality'),
                 self::column($row, 'town_area'),
+                self::column($row, 'prefecture_kana'),
+                self::column($row, 'municipality_kana'),
+                self::column($row, 'town_area_kana'),
             );
         }
         return $addresses;
